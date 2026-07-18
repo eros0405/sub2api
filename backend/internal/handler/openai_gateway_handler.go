@@ -614,6 +614,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		c.Request.Context(), c, sessionHashBody, reqModel,
 	))
 	requireCompact := legacyCompact
+	inputTokensRequest := isOpenAIResponsesInputTokensPath(c)
 
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
@@ -758,6 +759,19 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// Forward request
 		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
 		forwardStart := time.Now()
+		if inputTokensRequest && account.IsOpenAIOAuth() {
+			func() {
+				defer func() {
+					if accountReleaseFunc != nil {
+						accountReleaseFunc()
+					}
+				}()
+				h.gatewayService.WriteOpenAIOAuthResponsesInputTokensEstimate(c, account, forwardBody)
+			}()
+			service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, time.Since(forwardStart).Milliseconds())
+			reqLog.Debug("openai.input_tokens.oauth_local_estimate_completed", zap.Int64("account_id", account.ID))
+			return
+		}
 		// 用扣除非语义心跳字节的口径快照：心跳注释不构成语义响应，
 		// 不能因心跳字节变化而放弃 failover 换号（#3887）。
 		writerSizeBeforeForward := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
@@ -983,6 +997,14 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 func isOpenAILegacyCompactPath(c *gin.Context) bool {
 	return service.IsOpenAIResponsesCompactPath(c)
+}
+
+func isOpenAIResponsesInputTokensPath(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	normalizedPath := strings.TrimRight(strings.TrimSpace(c.Request.URL.Path), "/")
+	return strings.HasSuffix(normalizedPath, "/responses/input_tokens")
 }
 
 // isBareOpenAIResponsesPath 仅匹配裸 /responses 端点（无 /compact 等子路径），

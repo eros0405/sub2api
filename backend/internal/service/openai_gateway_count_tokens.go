@@ -250,6 +250,28 @@ func estimateAnthropicCountTokensLocally(body []byte) (int, error) {
 	return estimated, nil
 }
 
+// WriteOpenAIOAuthResponsesInputTokensEstimate handles direct Responses
+// input_tokens requests locally because ChatGPT OAuth does not expose the
+// Platform API token-counting endpoint.
+func (s *OpenAIGatewayService) WriteOpenAIOAuthResponsesInputTokensEstimate(
+	c *gin.Context,
+	account *Account,
+	body []byte,
+) {
+	prepared, err := prepareDirectOpenAIInputTokensCountRequest(body, account)
+	if err != nil {
+		logger.L().Warn("openai input_tokens: oauth local estimate preparation failed, using minimum estimate",
+			zap.Int64("account_id", account.ID),
+			zap.Int("estimated_input_tokens", openAIInputTokensFallbackMinimum),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusOK, gin.H{"input_tokens": openAIInputTokensFallbackMinimum})
+		return
+	}
+
+	writeOpenAIOAuthInputTokensFallback(c, account, prepared, 0)
+}
+
 // ForwardCountTokensAsAnthropic bridges Anthropic /v1/messages/count_tokens to
 // OpenAI POST /v1/responses/input_tokens and returns Anthropic-compatible output.
 func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
@@ -426,6 +448,26 @@ func prepareOpenAIInputTokensCountRequest(
 	}, nil
 }
 
+func prepareDirectOpenAIInputTokensCountRequest(body []byte, account *Account) (*openAIInputTokensCountPrepared, error) {
+	var req openAIInputTokensCountRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, fmt.Errorf("parse openai input_tokens request: %w", err)
+	}
+
+	originalModel := strings.TrimSpace(req.Model)
+	billingModel := resolveOpenAIForwardModel(account, originalModel, "")
+	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	req.Model = upstreamModel
+
+	return &openAIInputTokensCountPrepared{
+		Request:         req,
+		OriginalModel:   originalModel,
+		NormalizedModel: originalModel,
+		BillingModel:    billingModel,
+		UpstreamModel:   upstreamModel,
+	}, nil
+}
+
 func (s *OpenAIGatewayService) buildInputTokensUpstreamRequest(
 	ctx context.Context,
 	c *gin.Context,
@@ -503,20 +545,26 @@ func writeOpenAIOAuthInputTokensFallback(c *gin.Context, account *Account, prepa
 		if got > 0 {
 			estimated = got
 		}
-		logger.L().Info("openai count_tokens: oauth fallback to local tiktoken estimate",
+		fields := []zap.Field{
 			zap.Int64("account_id", account.ID),
-			zap.Int("upstream_status", statusCode),
 			zap.Int("estimated_input_tokens", estimated),
 			zap.String("upstream_model", prepared.UpstreamModel),
-		)
+		}
+		if statusCode > 0 {
+			fields = append(fields, zap.Int("upstream_status", statusCode))
+		}
+		logger.L().Info("openai count_tokens: oauth fallback to local tiktoken estimate", fields...)
 	} else {
-		logger.L().Warn("openai count_tokens: oauth local tiktoken fallback failed, using minimum estimate",
+		fields := []zap.Field{
 			zap.Int64("account_id", account.ID),
-			zap.Int("upstream_status", statusCode),
 			zap.Int("estimated_input_tokens", estimated),
 			zap.String("upstream_model", prepared.UpstreamModel),
 			zap.Error(err),
-		)
+		}
+		if statusCode > 0 {
+			fields = append(fields, zap.Int("upstream_status", statusCode))
+		}
+		logger.L().Warn("openai count_tokens: oauth local tiktoken fallback failed, using minimum estimate", fields...)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

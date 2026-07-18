@@ -190,6 +190,45 @@ func TestOpenAIGatewayService_OpenAIOAuthInputTokensFallbackUsesMinimumWhenEstim
 	require.JSONEq(t, `{"input_tokens":1}`, rec.Body.String())
 }
 
+func TestPrepareDirectOpenAIInputTokensCountRequest_AppliesAccountModelMapping(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{"client-model": "gpt-5.3-codex"},
+		},
+	}
+	body := []byte(`{"model":"client-model","instructions":"Be concise.","input":"hello"}`)
+
+	prepared, err := prepareDirectOpenAIInputTokensCountRequest(body, account)
+	require.NoError(t, err)
+	require.Equal(t, "client-model", prepared.OriginalModel)
+	require.Equal(t, "gpt-5.3-codex", prepared.BillingModel)
+	require.Equal(t, "gpt-5.3-codex", prepared.UpstreamModel)
+	require.Equal(t, "gpt-5.3-codex", prepared.Request.Model)
+
+	estimated, err := estimateOpenAIInputTokens(prepared.Request)
+	require.NoError(t, err)
+	require.Positive(t, estimated)
+}
+
+func TestWriteOpenAIOAuthResponsesInputTokensEstimate_UsesMinimumWhenPreparationFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	account := &Account{ID: 304, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	(&OpenAIGatewayService{}).WriteOpenAIOAuthResponsesInputTokensEstimate(
+		c,
+		account,
+		[]byte(`{"model":"gpt-5","tools":"invalid"}`),
+	)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, `{"input_tokens":1}`, rec.Body.String())
+}
+
 func TestEstimateOpenAIInputTokens_RequestSamples(t *testing.T) {
 	cases := []struct {
 		name string
