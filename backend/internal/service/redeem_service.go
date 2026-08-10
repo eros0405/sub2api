@@ -695,6 +695,16 @@ func (s *RedeemService) GetUserHistory(ctx context.Context, userID int64, limit 
 	return codes, nil
 }
 
+// GetUserHistoryPaginated 获取用户的兑换历史（分页）。
+// codeType 为可选类型过滤，传空字符串表示不过滤。
+func (s *RedeemService) GetUserHistoryPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]RedeemCode, *pagination.PaginationResult, error) {
+	codes, result, err := s.redeemRepo.ListByUserPaginated(ctx, userID, params, codeType)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get user redeem history: %w", err)
+	}
+	return codes, result, nil
+}
+
 // reduceOrCancelSubscription 缩短订阅天数，剩余天数 <= 0 时取消订阅
 func (s *RedeemService) reduceOrCancelSubscription(ctx context.Context, userID, groupID int64, reduceDays int, code string) error {
 	sub, err := s.subscriptionService.userSubRepo.GetByUserIDAndGroupID(ctx, userID, groupID)

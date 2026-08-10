@@ -476,20 +476,82 @@ func TestAPIContracts(t *testing.T) {
 			wantJSON: `{
 				"code": 0,
 				"message": "success",
-				"data": [
+				"data": {
+					"items": [
+						{
+							"id": 900,
+							"code": "CODE-123",
+							"type": "balance",
+							"value": 1.25,
+							"status": "used",
+							"used_by": 1,
+							"used_at": "2025-01-02T03:04:05Z",
+							"created_at": "2025-01-02T03:04:05Z",
+							"group_id": null,
+							"validity_days": 0
+						}
+					],
+					"total": 1,
+					"page": 1,
+					"page_size": 20,
+					"pages": 1
+				}
+			}`,
+		},
+		{
+			name: "GET /api/v1/redeem/history?page=2&page_size=1",
+			setup: func(t *testing.T, deps *contractDeps) {
+				t.Helper()
+				// 两条记录 + 每页 1 条：第 2 页应只返回第二条，total/pages 反映全量。
+				deps.redeemRepo.SetByUser(1, []service.RedeemCode{
 					{
-						"id": 900,
-						"code": "CODE-123",
-						"type": "balance",
-						"value": 1.25,
-						"status": "used",
-						"used_by": 1,
-						"used_at": "2025-01-02T03:04:05Z",
-						"created_at": "2025-01-02T03:04:05Z",
-						"group_id": null,
-						"validity_days": 0
-					}
-				]
+						ID:        900,
+						Code:      "CODE-123",
+						Type:      service.RedeemTypeBalance,
+						Value:     1.25,
+						Status:    service.StatusUsed,
+						UsedBy:    ptr(int64(1)),
+						UsedAt:    ptr(deps.now),
+						CreatedAt: deps.now,
+					},
+					{
+						ID:        901,
+						Code:      "CODE-456",
+						Type:      service.RedeemTypeBalance,
+						Value:     2.50,
+						Status:    service.StatusUsed,
+						UsedBy:    ptr(int64(1)),
+						UsedAt:    ptr(deps.now),
+						CreatedAt: deps.now,
+					},
+				})
+			},
+			method:     http.MethodGet,
+			path:       "/api/v1/redeem/history?page=2&page_size=1",
+			wantStatus: http.StatusOK,
+			wantJSON: `{
+				"code": 0,
+				"message": "success",
+				"data": {
+					"items": [
+						{
+							"id": 901,
+							"code": "CODE-456",
+							"type": "balance",
+							"value": 2.5,
+							"status": "used",
+							"used_by": 1,
+							"used_at": "2025-01-02T03:04:05Z",
+							"created_at": "2025-01-02T03:04:05Z",
+							"group_id": null,
+							"validity_days": 0
+						}
+					],
+					"total": 2,
+					"page": 2,
+					"page_size": 1,
+					"pages": 2
+				}
 			}`,
 		},
 		{
@@ -2193,8 +2255,41 @@ func (r *stubRedeemCodeRepo) ListByUser(ctx context.Context, userID int64, limit
 	return append([]service.RedeemCode(nil), codes...), nil
 }
 
-func (stubRedeemCodeRepo) ListByUserPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]service.RedeemCode, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
+func (r *stubRedeemCodeRepo) ListByUserPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]service.RedeemCode, *pagination.PaginationResult, error) {
+	if r.byUser == nil {
+		return nil, &pagination.PaginationResult{Total: 0, Page: params.Page, PageSize: params.Limit(), Pages: 1}, nil
+	}
+	all := r.byUser[userID]
+	if codeType != "" {
+		filtered := make([]service.RedeemCode, 0, len(all))
+		for _, c := range all {
+			if c.Type == codeType {
+				filtered = append(filtered, c)
+			}
+		}
+		all = filtered
+	}
+
+	total := len(all)
+	start := params.Offset()
+	if start > total {
+		start = total
+	}
+	end := start + params.Limit()
+	if end > total {
+		end = total
+	}
+	pages := (total + params.Limit() - 1) / params.Limit()
+	if pages < 1 {
+		pages = 1
+	}
+
+	return append([]service.RedeemCode(nil), all[start:end]...), &pagination.PaginationResult{
+		Total:    int64(total),
+		Page:     params.Page,
+		PageSize: params.Limit(),
+		Pages:    pages,
+	}, nil
 }
 
 func (stubRedeemCodeRepo) SumPositiveBalanceByUser(ctx context.Context, userID int64) (float64, error) {

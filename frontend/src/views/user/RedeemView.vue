@@ -335,6 +335,17 @@
               {{ t('redeem.historyWillAppear') }}
             </p>
           </div>
+
+          <!-- Pagination -->
+          <Pagination
+            v-if="pagination.total > 0"
+            class="mt-4"
+            :page="pagination.page"
+            :total="pagination.total"
+            :page-size="pagination.page_size"
+            @update:page="handlePageChange"
+            @update:pageSize="handlePageSizeChange"
+          />
         </div>
       </div>
     </div>
@@ -342,7 +353,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
@@ -350,7 +361,9 @@ import { useSubscriptionStore } from '@/stores/subscriptions'
 import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import Pagination from '@/components/common/Pagination.vue'
 import { formatDateTime } from '@/utils/format'
+import { getConfiguredTableDefaultPageSize } from '@/utils/tablePreferences'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -375,6 +388,11 @@ const errorMessage = ref('')
 // History data
 const history = ref<RedeemHistoryItem[]>([])
 const loadingHistory = ref(false)
+const pagination = reactive({
+  page: 1,
+  page_size: getConfiguredTableDefaultPageSize(),
+  total: 0
+})
 const contactInfo = ref('')
 
 // Helper functions for history display
@@ -423,12 +441,28 @@ const formatHistoryValue = (item: RedeemHistoryItem) => {
 const fetchHistory = async () => {
   loadingHistory.value = true
   try {
-    history.value = await redeemAPI.getHistory()
+    const res = await redeemAPI.getHistory({
+      page: pagination.page,
+      page_size: pagination.page_size
+    })
+    history.value = res.items || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('Failed to fetch history:', error)
   } finally {
     loadingHistory.value = false
   }
+}
+
+const handlePageChange = (page: number) => {
+  pagination.page = page
+  fetchHistory()
+}
+
+const handlePageSizeChange = (size: number) => {
+  pagination.page_size = size
+  pagination.page = 1
+  fetchHistory()
 }
 
 const handleRedeem = async () => {
@@ -462,7 +496,8 @@ const handleRedeem = async () => {
     // Clear the input
     redeemCode.value = ''
 
-    // Refresh history
+    // Refresh history (new record lands on the first page)
+    pagination.page = 1
     await fetchHistory()
 
     // Show success toast

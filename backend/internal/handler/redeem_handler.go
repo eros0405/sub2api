@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -59,7 +60,7 @@ func (h *RedeemHandler) Redeem(c *gin.Context) {
 	response.Success(c, dto.RedeemCodeFromService(result))
 }
 
-// GetHistory returns the user's redemption history
+// GetHistory returns the user's redemption history (paginated)
 // GET /api/v1/redeem/history
 func (h *RedeemHandler) GetHistory(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
@@ -68,10 +69,15 @@ func (h *RedeemHandler) GetHistory(c *gin.Context) {
 		return
 	}
 
-	// Default limit is 25
-	limit := 25
+	page, pageSize := response.ParsePagination(c)
+	params := pagination.PaginationParams{
+		Page:     page,
+		PageSize: pageSize,
+	}
 
-	codes, err := h.redeemService.GetUserHistory(c.Request.Context(), subject.UserID, limit)
+	codes, result, err := h.redeemService.GetUserHistoryPaginated(
+		c.Request.Context(), subject.UserID, params, c.Query("type"),
+	)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -81,5 +87,9 @@ func (h *RedeemHandler) GetHistory(c *gin.Context) {
 	for i := range codes {
 		out = append(out, *dto.RedeemCodeFromService(&codes[i]))
 	}
-	response.Success(c, out)
+	if result == nil {
+		response.Paginated(c, out, int64(len(out)), page, pageSize)
+		return
+	}
+	response.Paginated(c, out, result.Total, result.Page, result.PageSize)
 }
