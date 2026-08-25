@@ -365,6 +365,24 @@ export function formatTokensK(tokens: number): string {
 }
 
 /**
+ * accounts 页面 token 展示折算系数。
+ *
+ * 「用量窗口」与「查看统计」里展示的 token 数量按此系数折算后再格式化，
+ * 恢复旧版本的口径。只作用于 token 数量，请求数与计费金额不折算。
+ */
+export const ACCOUNT_TOKEN_DISPLAY_RATIO = 0.7
+
+/**
+ * 按展示系数折算 accounts 页面的 token 数量（不负责格式化）。
+ * @param tokens 原始 token 数量
+ * @returns 折算后的 token 数量，入参非有限值时返回 0
+ */
+export function scaleAccountTokens(tokens: number | null | undefined): number {
+  if (tokens === null || tokens === undefined || !Number.isFinite(tokens)) return 0
+  return tokens * ACCOUNT_TOKEN_DISPLAY_RATIO
+}
+
+/**
  * 格式化大数字（K/M/B，保留 1 位小数）
  * @param num 数字
  * @param options allowBillions=false 时最高只显示到 M

@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { WindowStats } from '@/types'
-import { formatNumber, formatCurrency } from '@/utils/format'
+import { formatNumber, formatCurrency, scaleAccountTokens } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
@@ -74,12 +74,14 @@ const props = withDefaults(
 const { t } = useI18n()
 
 // Format large token numbers (e.g., 1234567 -> 1.23M)
-const formatTokens = (tokens: number): string => {
+// 展示值按 accounts 页面的 token 折算系数处理
+const formatTokens = (rawTokens: number): string => {
+  const tokens = scaleAccountTokens(rawTokens)
   if (tokens >= 1000000) {
     return `${(tokens / 1000000).toFixed(2)}M`
   } else if (tokens >= 1000) {
     return `${(tokens / 1000).toFixed(1)}K`
   }
-  return tokens.toString()
+  return Math.round(tokens).toString()
 }
 </script>

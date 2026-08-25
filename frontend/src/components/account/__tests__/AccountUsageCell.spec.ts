@@ -847,7 +847,8 @@ describe('AccountUsageCell', () => {
 		await flushPromises()
 
 		expect(wrapper.text()).toContain('1.0M req')
-		expect(wrapper.text()).toContain('1.0B')
+		// token 展示按 0.7 折算：1B * 0.7 = 700M（请求数与费用不折算）
+		expect(wrapper.text()).toContain('700.0M')
 		expect(wrapper.text()).toContain('A $12.35')
 		expect(wrapper.text()).toContain('U $6.79')
 

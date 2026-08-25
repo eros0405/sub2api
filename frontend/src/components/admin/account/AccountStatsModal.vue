@@ -469,6 +469,7 @@ import EndpointDistributionChart from '@/components/charts/EndpointDistributionC
 import Icon from '@/components/icons/Icon.vue'
 import { adminAPI } from '@/api/admin'
 import type { Account, AccountUsageStatsResponse } from '@/types'
+import { scaleAccountTokens } from '@/utils/format'
 
 ChartJS.register(
   CategoryScale,
@@ -693,7 +694,9 @@ const formatNumber = (value: number): string => {
   return value.toLocaleString()
 }
 
-const formatTokens = (value: number): string => {
+// 展示值按 accounts 页面的 token 折算系数处理
+const formatTokens = (rawValue: number): string => {
+  const value = scaleAccountTokens(rawValue)
   if (value >= 1_000_000_000) {
     return `${(value / 1_000_000_000).toFixed(2)}B`
   } else if (value >= 1_000_000) {
@@ -701,7 +704,7 @@ const formatTokens = (value: number): string => {
   } else if (value >= 1_000) {
     return `${(value / 1_000).toFixed(2)}K`
   }
-  return value.toLocaleString()
+  return Math.round(value).toLocaleString()
 }
 
 const formatDuration = (ms: number): string => {

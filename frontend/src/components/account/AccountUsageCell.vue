@@ -364,7 +364,7 @@
           <UsageProgressBar
             v-if="grokFreeTokenBar"
             label="24h"
-            :title="t('admin.accounts.usageWindow.grokFreeQuota24hHint', { limit: formatCompactNumber(grokFreeTokenBar.limit) })"
+            :title="t('admin.accounts.usageWindow.grokFreeQuota24hHint', { limit: formatCompactNumber(scaleAccountTokens(grokFreeTokenBar.limit)) })"
             :utilization="grokFreeTokenBar.utilization"
             :window-stats="grokFreeQuotaUsage"
             :show-now-when-idle="true"
@@ -653,7 +653,7 @@ import { adminAPI } from '@/api/admin'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'
-import { formatCompactNumber } from '@/utils/format'
+import { formatCompactNumber, scaleAccountTokens } from '@/utils/format'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
@@ -1569,7 +1569,7 @@ const formatKeyRequests = computed(() => {
 
 const formatKeyTokens = computed(() => {
   if (!props.todayStats) return ''
-  return formatCompactNumber(props.todayStats.tokens)
+  return formatCompactNumber(scaleAccountTokens(props.todayStats.tokens))
 })
 
 const formatKeyCost = computed(() => {
