@@ -1002,6 +1002,12 @@ export default {
         enabledHint: '收到无重置时间的 429 时暂停该账号调度，冷却后自动恢复',
         cooldownSeconds: '回避时长（秒）',
         cooldownSecondsHint: '默认回避持续时间（1-7200 秒）；上游返回明确 reset 时仍优先使用上游时间',
+        transientThreshold: '熔断阈值（次）',
+        transientThresholdHint: '滑动窗口内瞬时 429 达到此次数即跳过同账号重试、直接进入回避（0 = 关闭熔断，保持旧行为）',
+        windowSeconds: '统计窗口（秒）',
+        windowSecondsHint: '瞬时 429 熔断计数的滑动窗口时长（1-600 秒）',
+        maxCooldownSeconds: '退避封顶（秒）',
+        maxCooldownSecondsHint: '反复熔断时回避时长按倍数递增的上限（秒）；≤ 回避时长表示不启用指数退避',
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },

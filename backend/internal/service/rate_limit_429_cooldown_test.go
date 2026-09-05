@@ -61,6 +61,43 @@ func TestSetRateLimit429CooldownSettings_EnabledRejectsOutOfRange(t *testing.T) 
 	}
 }
 
+func TestGetRateLimit429CooldownSettings_BackfillsBreakerDefaultsForLegacyData(t *testing.T) {
+	repo := newMockSettingRepo()
+	// 老数据只有 enabled + cooldown_seconds，缺熔断字段。
+	repo.data[SettingKeyRateLimit429CooldownSettings] = `{"enabled":true,"cooldown_seconds":10}`
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetRateLimit429CooldownSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 10, settings.CooldownSeconds)
+	require.Equal(t, 60, settings.WindowSeconds, "缺失应回填默认窗口")
+	require.Equal(t, 5, settings.TransientThreshold, "缺失应回填默认阈值")
+	require.Equal(t, 600, settings.MaxCooldownSeconds, "缺失应回填默认封顶")
+}
+
+func TestGetRateLimit429CooldownSettings_ClampsBreakerFields(t *testing.T) {
+	repo := newMockSettingRepo()
+	repo.data[SettingKeyRateLimit429CooldownSettings] = `{"enabled":true,"cooldown_seconds":5,"window_seconds":9999,"transient_threshold":999,"max_cooldown_seconds":99999}`
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetRateLimit429CooldownSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 600, settings.WindowSeconds)
+	require.Equal(t, 100, settings.TransientThreshold)
+	require.Equal(t, 7200, settings.MaxCooldownSeconds)
+}
+
+func TestGetRateLimit429CooldownSettings_ThresholdZeroPreserved(t *testing.T) {
+	repo := newMockSettingRepo()
+	// 显式关闭熔断：threshold=0 但其他字段非零，不应被当成老数据回填。
+	repo.data[SettingKeyRateLimit429CooldownSettings] = `{"enabled":true,"cooldown_seconds":5,"window_seconds":60,"transient_threshold":0,"max_cooldown_seconds":600}`
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetRateLimit429CooldownSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 0, settings.TransientThreshold, "显式关闭熔断应被保留")
+}
+
 func TestHandle429_FallbackUsesDBSeconds(t *testing.T) {
 	accountRepo := &rateLimit429AccountRepoStub{}
 	settingRepo := newMockSettingRepo()

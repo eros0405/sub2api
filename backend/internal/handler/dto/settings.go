@@ -447,8 +447,11 @@ type OverloadCooldownSettings struct {
 
 // RateLimit429CooldownSettings 429默认回避配置 DTO
 type RateLimit429CooldownSettings struct {
-	Enabled         bool `json:"enabled"`
-	CooldownSeconds int  `json:"cooldown_seconds"`
+	Enabled            bool `json:"enabled"`
+	CooldownSeconds    int  `json:"cooldown_seconds"`
+	WindowSeconds      int  `json:"window_seconds"`
+	TransientThreshold int  `json:"transient_threshold"`
+	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
 }
 
 type OpenAIImagesOAuthUnavailableCooldownSettings struct {

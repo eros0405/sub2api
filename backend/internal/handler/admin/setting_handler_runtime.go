@@ -112,15 +112,21 @@ func (h *SettingHandler) GetRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:         settings.Enabled,
-		CooldownSeconds: settings.CooldownSeconds,
+		Enabled:            settings.Enabled,
+		CooldownSeconds:    settings.CooldownSeconds,
+		WindowSeconds:      settings.WindowSeconds,
+		TransientThreshold: settings.TransientThreshold,
+		MaxCooldownSeconds: settings.MaxCooldownSeconds,
 	})
 }
 
 // UpdateRateLimit429CooldownSettingsRequest 更新429默认回避配置请求
 type UpdateRateLimit429CooldownSettingsRequest struct {
-	Enabled         bool `json:"enabled"`
-	CooldownSeconds int  `json:"cooldown_seconds"`
+	Enabled            bool `json:"enabled"`
+	CooldownSeconds    int  `json:"cooldown_seconds"`
+	WindowSeconds      int  `json:"window_seconds"`
+	TransientThreshold int  `json:"transient_threshold"`
+	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
 }
 
 // UpdateRateLimit429CooldownSettings 更新429默认回避配置
@@ -133,8 +139,11 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	settings := &service.RateLimit429CooldownSettings{
-		Enabled:         req.Enabled,
-		CooldownSeconds: req.CooldownSeconds,
+		Enabled:            req.Enabled,
+		CooldownSeconds:    req.CooldownSeconds,
+		WindowSeconds:      req.WindowSeconds,
+		TransientThreshold: req.TransientThreshold,
+		MaxCooldownSeconds: req.MaxCooldownSeconds,
 	}
 
 	if err := h.settingService.SetRateLimit429CooldownSettings(c.Request.Context(), settings); err != nil {
@@ -149,8 +158,11 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:         updatedSettings.Enabled,
-		CooldownSeconds: updatedSettings.CooldownSeconds,
+		Enabled:            updatedSettings.Enabled,
+		CooldownSeconds:    updatedSettings.CooldownSeconds,
+		WindowSeconds:      updatedSettings.WindowSeconds,
+		TransientThreshold: updatedSettings.TransientThreshold,
+		MaxCooldownSeconds: updatedSettings.MaxCooldownSeconds,
 	})
 }
 

@@ -369,6 +369,86 @@
                       }}
                     </p>
                   </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t(
+                          "admin.settings.rateLimit429Cooldown.transientThreshold",
+                        )
+                      }}
+                    </label>
+                    <input
+                      v-model.number="
+                        rateLimit429CooldownForm.transient_threshold
+                      "
+                      type="number"
+                      min="0"
+                      max="100"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.rateLimit429Cooldown.transientThresholdHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t("admin.settings.rateLimit429Cooldown.windowSeconds")
+                      }}
+                    </label>
+                    <input
+                      v-model.number="rateLimit429CooldownForm.window_seconds"
+                      type="number"
+                      min="1"
+                      max="600"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.rateLimit429Cooldown.windowSecondsHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t(
+                          "admin.settings.rateLimit429Cooldown.maxCooldownSeconds",
+                        )
+                      }}
+                    </label>
+                    <input
+                      v-model.number="
+                        rateLimit429CooldownForm.max_cooldown_seconds
+                      "
+                      type="number"
+                      min="0"
+                      max="7200"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.rateLimit429Cooldown.maxCooldownSecondsHint",
+                        )
+                      }}
+                    </p>
+                  </div>
                 </div>
 
                 <div
@@ -9000,6 +9080,9 @@ const rateLimit429CooldownSaving = ref(false);
 const rateLimit429CooldownForm = reactive({
   enabled: true,
   cooldown_seconds: 5,
+  window_seconds: 60,
+  transient_threshold: 5,
+  max_cooldown_seconds: 600,
 });
 
 // Panel API Rate Limit 状态
@@ -11912,6 +11995,9 @@ async function saveRateLimit429CooldownSettings() {
     const updated = await adminAPI.settings.updateRateLimit429CooldownSettings({
       enabled: rateLimit429CooldownForm.enabled,
       cooldown_seconds: rateLimit429CooldownForm.cooldown_seconds,
+      window_seconds: rateLimit429CooldownForm.window_seconds,
+      transient_threshold: rateLimit429CooldownForm.transient_threshold,
+      max_cooldown_seconds: rateLimit429CooldownForm.max_cooldown_seconds,
     });
     Object.assign(rateLimit429CooldownForm, updated);
     appStore.showSuccess(t("admin.settings.rateLimit429Cooldown.saved"));

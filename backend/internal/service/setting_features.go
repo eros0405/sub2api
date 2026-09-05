@@ -739,8 +739,40 @@ func (s *SettingService) GetRateLimit429CooldownSettings(ctx context.Context) (*
 	if settings.CooldownSeconds > 7200 {
 		settings.CooldownSeconds = 7200
 	}
+	normalizeRateLimit429BreakerFields(&settings)
 
 	return &settings, nil
+}
+
+// normalizeRateLimit429BreakerFields 对熔断/退避相关字段做边界归一化。
+// 老数据缺字段时（全为 0）回填默认值，保证升级平滑。
+func normalizeRateLimit429BreakerFields(settings *RateLimit429CooldownSettings) {
+	// 全部为 0 视为旧版本数据，回填默认熔断参数。
+	if settings.WindowSeconds == 0 && settings.TransientThreshold == 0 && settings.MaxCooldownSeconds == 0 {
+		def := DefaultRateLimit429CooldownSettings()
+		settings.WindowSeconds = def.WindowSeconds
+		settings.TransientThreshold = def.TransientThreshold
+		settings.MaxCooldownSeconds = def.MaxCooldownSeconds
+		return
+	}
+	if settings.WindowSeconds < 1 {
+		settings.WindowSeconds = 60
+	}
+	if settings.WindowSeconds > 600 {
+		settings.WindowSeconds = 600
+	}
+	if settings.TransientThreshold < 0 {
+		settings.TransientThreshold = 0
+	}
+	if settings.TransientThreshold > 100 {
+		settings.TransientThreshold = 100
+	}
+	if settings.MaxCooldownSeconds < 0 {
+		settings.MaxCooldownSeconds = 0
+	}
+	if settings.MaxCooldownSeconds > 7200 {
+		settings.MaxCooldownSeconds = 7200
+	}
 }
 
 // SetRateLimit429CooldownSettings 设置429默认回避配置
@@ -755,6 +787,7 @@ func (s *SettingService) SetRateLimit429CooldownSettings(ctx context.Context, se
 		}
 		settings.CooldownSeconds = 5
 	}
+	normalizeRateLimit429BreakerFields(settings)
 
 	data, err := json.Marshal(settings)
 	if err != nil {

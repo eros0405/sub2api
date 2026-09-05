@@ -566,6 +566,12 @@ type RateLimit429CooldownSettings struct {
 	Enabled bool `json:"enabled"`
 	// CooldownSeconds 默认回避时长（秒）
 	CooldownSeconds int `json:"cooldown_seconds"`
+	// WindowSeconds 瞬时429熔断计数的滑动窗口（秒）
+	WindowSeconds int `json:"window_seconds"`
+	// TransientThreshold 窗口内瞬时429数达到此值即直接进入回避（跳过同账号重试窗口）；0 表示关闭熔断，保持旧行为
+	TransientThreshold int `json:"transient_threshold"`
+	// MaxCooldownSeconds 反复熔断时的指数退避封顶（秒）；<=CooldownSeconds 表示不退避，恒定回避时长
+	MaxCooldownSeconds int `json:"max_cooldown_seconds"`
 }
 
 // OpenAIImagesOAuthUnavailableCooldownSettings controls how long an OAuth account's image capability is paused when unavailable.
@@ -603,11 +609,14 @@ func DefaultOverloadCooldownSettings() *OverloadCooldownSettings {
 	}
 }
 
-// DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒）
+// DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒；熔断 5次/60秒；退避封顶600秒）
 func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
 	return &RateLimit429CooldownSettings{
-		Enabled:         true,
-		CooldownSeconds: 5,
+		Enabled:            true,
+		CooldownSeconds:    5,
+		WindowSeconds:      60,
+		TransientThreshold: 5,
+		MaxCooldownSeconds: 600,
 	}
 }
 

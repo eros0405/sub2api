@@ -224,23 +224,133 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context
 	s.recordOpenAIOAuth429()
 	disposition, resetAt := classifyOpenAIOAuth429(headers, responseBody)
 	if disposition == openAIOAuth429Transient && s.openAIOAuth429RetryWindowActive(account) {
-		return
+		// 熔断：滑动窗口内瞬时 429 累计达到阈值时，跳过同账号重试窗口直接进入回避，
+		// 避免持续被限流的账号在 15s 窗口内空转重试。阈值=0 时保持旧行为。
+		if !s.shouldTrip429Breaker(ctx, account) {
+			return
+		}
 	}
 
 	now := time.Now()
 	cooldownUntil := now.Add(openAIOAuth429FallbackCooldown)
 	if resetAt != nil && resetAt.After(now) {
+		// 上游明确给出重置时间，直接采信，不参与本地退避。
 		cooldownUntil = *resetAt
 	} else if s.rateLimitService != nil {
-		cooldown, ok := s.rateLimitService.get429FallbackCooldown(ctx, account)
-		if !ok || cooldown <= 0 {
-			s.openaiOAuth429RetryStartedAt.Delete(account.ID)
-			return
+		// 优先采信持久化 fallback 冷却（PR #6320）；无持久化冷却时走本地指数退避回避（熔断补丁）。
+		if cooldown, ok := s.rateLimitService.get429FallbackCooldown(ctx, account); ok && cooldown > 0 {
+			cooldownUntil = now.Add(cooldown)
+		} else {
+			cooldownUntil = now.Add(s.next429TransientCooldown(ctx, account))
 		}
-		cooldownUntil = now.Add(cooldown)
+	} else {
+		cooldownUntil = now.Add(s.next429TransientCooldown(ctx, account))
 	}
 	s.BlockAccountScheduling(account, cooldownUntil, "429")
 	s.openaiOAuth429RetryStartedAt.Delete(account.ID)
+}
+
+// transient429Window 记录单账号瞬时 429 的滑动窗口计数。
+type transient429Window struct {
+	mu    sync.Mutex
+	start time.Time
+	count int
+}
+
+// recordAccountTransient429 在滑动窗口内累计该账号的瞬时 429 次数并返回当前窗口计数。
+func (s *OpenAIGatewayService) recordAccountTransient429(accountID int64, window time.Duration) int {
+	now := time.Now()
+	value, _ := s.openaiOAuth429TransientWindow.LoadOrStore(accountID, &transient429Window{start: now, count: 0})
+	w, ok := value.(*transient429Window)
+	if !ok {
+		w = &transient429Window{start: now, count: 0}
+		s.openaiOAuth429TransientWindow.Store(accountID, w)
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if now.Sub(w.start) >= window {
+		w.start = now
+		w.count = 0
+	}
+	w.count++
+	return w.count
+}
+
+// shouldTrip429Breaker 判断当前账号是否已在窗口内达到熔断阈值。阈值<=0 时关闭熔断（保持旧行为）。
+func (s *OpenAIGatewayService) shouldTrip429Breaker(ctx context.Context, account *Account) bool {
+	settings := s.rateLimit429Settings(ctx)
+	if settings == nil || !settings.Enabled || settings.TransientThreshold <= 0 {
+		return false
+	}
+	window := time.Duration(settings.WindowSeconds) * time.Second
+	if window <= 0 {
+		window = 60 * time.Second
+	}
+	count := s.recordAccountTransient429(account.ID, window)
+	if count < settings.TransientThreshold {
+		return false
+	}
+	slog.Warn("openai_oauth_429_breaker_tripped",
+		"account_id", account.ID,
+		"window_count", count,
+		"threshold", settings.TransientThreshold,
+		"window_seconds", settings.WindowSeconds)
+	return true
+}
+
+// next429TransientCooldown 计算本次瞬时 429 回避时长，并推进该账号的指数退避计数。
+// 冷却 = clamp(base * 2^streak, base, max)。max<=base 时不退避，恒定 base。
+func (s *OpenAIGatewayService) next429TransientCooldown(ctx context.Context, account *Account) time.Duration {
+	base := openAIOAuth429FallbackCooldown
+	maxCooldown := time.Duration(0)
+	if settings := s.rateLimit429Settings(ctx); settings != nil {
+		if settings.CooldownSeconds > 0 {
+			base = time.Duration(settings.CooldownSeconds) * time.Second
+		}
+		if settings.MaxCooldownSeconds > 0 {
+			maxCooldown = time.Duration(settings.MaxCooldownSeconds) * time.Second
+		}
+	}
+	// 无有效退避上限：恒定 base，不推进 streak。
+	if maxCooldown <= base {
+		return base
+	}
+	streak := 0
+	if v, ok := s.openaiOAuth429BackoffStreak.Load(account.ID); ok {
+		if n, ok := v.(int); ok {
+			streak = n
+		}
+	}
+	cooldown := base
+	for i := 0; i < streak && cooldown < maxCooldown; i++ {
+		cooldown *= 2
+	}
+	if cooldown > maxCooldown {
+		cooldown = maxCooldown
+	}
+	s.openaiOAuth429BackoffStreak.Store(account.ID, streak+1)
+	return cooldown
+}
+
+// rateLimit429Settings 读取全局 429 回避配置，settingService 缺失时返回 nil（调用方回退默认行为）。
+func (s *OpenAIGatewayService) rateLimit429Settings(ctx context.Context) *RateLimit429CooldownSettings {
+	if s == nil || s.settingService == nil {
+		return nil
+	}
+	settings, err := s.settingService.GetRateLimit429CooldownSettings(ctx)
+	if err != nil || settings == nil {
+		return nil
+	}
+	return settings
+}
+
+// reset429TransientState 在账号成功恢复后清除滑动窗口与退避计数，使冷却回到初始档位。
+func (s *OpenAIGatewayService) reset429TransientState(accountID int64) {
+	if s == nil {
+		return
+	}
+	s.openaiOAuth429TransientWindow.Delete(accountID)
+	s.openaiOAuth429BackoffStreak.Delete(accountID)
 }
 
 func (s *OpenAIGatewayService) shouldRetryOpenAIOAuth429OnSameAccount(account *Account, statusCode int, shouldDisable bool) bool {
@@ -387,6 +497,7 @@ func (s *OpenAIGatewayService) ClearAccountSchedulingBlock(accountID int64) {
 	defer mu.Unlock()
 	s.openaiAccountRuntimeBlockUntil.Delete(accountID)
 	s.openaiOAuth429RetryStartedAt.Delete(accountID)
+	s.reset429TransientState(accountID)
 	s.openaiAccountRuntimeBlockGeneration.Store(accountID, s.openaiAccountRuntimeBlockSequence.Add(1))
 }
 

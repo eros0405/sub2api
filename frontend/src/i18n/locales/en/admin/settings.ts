@@ -1008,6 +1008,12 @@ export default {
         enabledHint: 'Pause account scheduling when a 429 has no reset time, then auto-recover after cooldown',
         cooldownSeconds: 'Cooldown Duration (seconds)',
         cooldownSecondsHint: 'Default cooldown duration (1-7200 seconds); explicit upstream reset times still take precedence',
+        transientThreshold: 'Breaker Threshold (count)',
+        transientThresholdHint: 'When transient 429s within the window reach this count, skip same-account retry and enter cooldown directly (0 = disable breaker, keep legacy behavior)',
+        windowSeconds: 'Counting Window (seconds)',
+        windowSecondsHint: 'Sliding window for counting transient 429s toward the breaker (1-600 seconds)',
+        maxCooldownSeconds: 'Backoff Cap (seconds)',
+        maxCooldownSecondsHint: 'Upper bound for exponentially increasing cooldown on repeated trips (seconds); ≤ cooldown duration disables exponential backoff',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },
