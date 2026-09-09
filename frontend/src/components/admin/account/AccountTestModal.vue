@@ -81,6 +81,27 @@
         />
       </div>
 
+      <div v-if="supportsPromptPreset" class="space-y-1.5">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {{ t('admin.accounts.promptPresetLabel') }}
+        </label>
+        <Select
+          v-model="promptPreset"
+          :options="promptPresetOptions"
+          :disabled="status === 'connecting'"
+        />
+      </div>
+
+      <div v-if="showCustomPromptInput" class="space-y-1.5">
+        <TextArea
+          v-model="testPrompt"
+          :label="t('admin.accounts.customPromptLabel')"
+          :placeholder="t('admin.accounts.customPromptPlaceholder')"
+          :disabled="status === 'connecting'"
+          rows="3"
+        />
+      </div>
+
       <div v-if="supportsPromptInput" class="space-y-1.5">
         <TextArea
           v-model="testPrompt"
@@ -375,6 +396,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/api/adminUIRequest'
 import { adminAPI } from '@/api/admin'
+import { KNOWLEDGE_CUTOFF_TEST_PROMPT } from '@/constants/testPrompts'
 import type { Account, ClaudeModel } from '@/types'
 
 const { t } = useI18n()
@@ -407,6 +429,7 @@ const errorMessage = ref('')
 const availableModels = ref<ClaudeModel[]>([])
 const selectedModelId = ref('')
 const testPrompt = ref('')
+const promptPreset = ref<'default' | 'cutoff' | 'custom'>('default')
 const loadingModels = ref(false)
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewMedia[]>([])
@@ -506,6 +529,27 @@ const supportsPromptInput = computed(() => {
     grokTestMode.value === 'search' ||
     grokTestMode.value === 'tts'
   )
+})
+
+// 文本测试模式（非 Grok）支持选择预设提示词；Grok 文本走固定配额探测。
+const supportsPromptPreset = computed(() => !isGrokAccount.value && !supportsPromptInput.value)
+
+const promptPresetOptions = computed(() => [
+  { value: 'default', label: t('admin.accounts.promptPresetDefault') },
+  { value: 'cutoff', label: t('admin.accounts.promptPresetCutoff') },
+  { value: 'custom', label: t('admin.accounts.promptPresetCustom') }
+])
+
+const showCustomPromptInput = computed(
+  () => supportsPromptPreset.value && promptPreset.value === 'custom'
+)
+
+watch(promptPreset, (preset) => {
+  if (preset === 'cutoff') {
+    testPrompt.value = KNOWLEDGE_CUTOFF_TEST_PROMPT
+  } else if (preset === 'default') {
+    testPrompt.value = ''
+  }
 })
 
 const supportsImageUpload = computed(
@@ -738,6 +782,7 @@ watch(
   async (newVal) => {
     if (newVal && props.account) {
       testPrompt.value = ''
+      promptPreset.value = 'default'
       testMode.value = 'default'
       grokTestMode.value = 'text'
       resetState()
@@ -852,7 +897,7 @@ const startTest = async () => {
       audio_data_url?: string
     } = {
       model_id: showModelSelect.value ? selectedModelId.value : '',
-      prompt: supportsPromptInput.value ? testPrompt.value.trim() : ''
+      prompt: testPrompt.value.trim()
     }
     if (isOpenAIAccount.value) {
       requestBody.mode = testMode.value

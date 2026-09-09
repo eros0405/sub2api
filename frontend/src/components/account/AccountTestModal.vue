@@ -66,6 +66,27 @@
         />
       </div>
 
+      <div v-if="!supportsImageTest" class="space-y-1.5">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {{ t('admin.accounts.promptPresetLabel') }}
+        </label>
+        <Select
+          v-model="promptPreset"
+          :options="promptPresetOptions"
+          :disabled="status === 'connecting'"
+        />
+      </div>
+
+      <div v-if="showCustomPromptInput" class="space-y-1.5">
+        <TextArea
+          v-model="testPrompt"
+          :label="t('admin.accounts.customPromptLabel')"
+          :placeholder="t('admin.accounts.customPromptPlaceholder')"
+          :disabled="status === 'connecting'"
+          rows="3"
+        />
+      </div>
+
       <div v-if="supportsImageTest" class="space-y-1.5">
         <TextArea
           v-model="testPrompt"
@@ -251,6 +272,7 @@ import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
 import { adminAPI } from '@/api/admin'
+import { KNOWLEDGE_CUTOFF_TEST_PROMPT } from '@/constants/testPrompts'
 import type { Account, ClaudeModel } from '@/types'
 
 const { t } = useI18n()
@@ -283,6 +305,22 @@ const errorMessage = ref('')
 const availableModels = ref<ClaudeModel[]>([])
 const selectedModelId = ref('')
 const testPrompt = ref('')
+const promptPreset = ref<'default' | 'cutoff' | 'custom'>('default')
+const promptPresetOptions = computed(() => [
+  { value: 'default', label: t('admin.accounts.promptPresetDefault') },
+  { value: 'cutoff', label: t('admin.accounts.promptPresetCutoff') },
+  { value: 'custom', label: t('admin.accounts.promptPresetCustom') }
+])
+const showCustomPromptInput = computed(
+  () => !supportsImageTest.value && promptPreset.value === 'custom'
+)
+watch(promptPreset, (preset) => {
+  if (preset === 'cutoff') {
+    testPrompt.value = KNOWLEDGE_CUTOFF_TEST_PROMPT
+  } else if (preset === 'default') {
+    testPrompt.value = ''
+  }
+})
 const loadingModels = ref(false)
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewImage[]>([])
@@ -326,6 +364,7 @@ watch(
   async (newVal) => {
     if (newVal && props.account) {
       testPrompt.value = ''
+      promptPreset.value = 'default'
       testMode.value = 'default'
       resetState()
       await loadAvailableModels()
@@ -430,7 +469,7 @@ const startTest = async () => {
       },
       body: JSON.stringify({
         model_id: selectedModelId.value,
-        prompt: supportsImageTest.value ? testPrompt.value.trim() : '',
+        prompt: testPrompt.value.trim(),
         mode: isOpenAIAccount.value ? testMode.value : 'default'
       }),
       signal: abortController.signal
