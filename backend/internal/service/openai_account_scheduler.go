@@ -2433,6 +2433,9 @@ func (s *OpenAIGatewayService) ReportOpenAIAccountScheduleResult(account *Accoun
 		s.openaiOAuth429RetryStartedAt.Delete(accountID)
 		s.reset429TransientState(accountID)
 		s.clearOpenAIAccountModelTransientState(accountID, normalizeOpenAIAccountModelTransientModel(model))
+		// 5xx 熔断按错误率判定，成功必须计入同一窗口的分母，
+		// 否则窗口里只有失败、错误率恒为 100%。
+		s.observeUpstream5xxSuccess(context.Background(), account)
 	}
 	scheduler := s.getOpenAIAccountScheduler(context.Background())
 	if scheduler == nil {

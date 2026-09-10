@@ -181,6 +181,18 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	// same-account retry budget. Recording the generic account+model transient
 	// cooldown here would block the next approved retry before that budget is used.
 	poolModeRetryable := account.IsPoolMode() && account.IsPoolModeRetryableStatus(statusCode)
+	// 账号级 5xx 错误率熔断：与下面的 account+model 连败熔断互补。
+	// 连败熔断只处理连续硬失败，对"5xx 与成功交替"的软风控免疫，
+	// 因此这里按滑动窗口错误率独立判定，且不受 AccountTypeAPIKey 限制
+	// （软风控主要发生在 OAuth 账号上）。
+	if !shouldDisable && account.Platform == PlatformOpenAI &&
+		shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) && !poolModeRetryable {
+		model := ""
+		if len(canonicalModel) > 0 {
+			model = canonicalModel[0]
+		}
+		s.maybeTripUpstream5xxBreaker(stateCtx, account, statusCode, model)
+	}
 	if !shouldDisable && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey &&
 		shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) && !poolModeRetryable {
 		model := ""

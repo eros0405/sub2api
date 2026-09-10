@@ -609,6 +609,47 @@ func DefaultOverloadCooldownSettings() *OverloadCooldownSettings {
 	}
 }
 
+// Upstream5xxBreakerSettings 上游 5xx 错误率熔断配置。
+//
+// 与 RateLimit429CooldownSettings 的连败式熔断不同，这里按滑动窗口内的**错误率**判定：
+// 账号被上游单独软风控时，5xx 与成功交替出现，连败计数几乎永远攒不够，
+// 而错误率能干净地把这类账号和健康账号分开（实测健康账号峰值 ~20%，劣化账号 >33%）。
+//
+// 绝对次数不能单独作为判据：高流量健康账号在上游抖动时的绝对错误数
+// 会超过低流量劣化账号，两者区间重叠。因此 MinSamples 只用作样本下限，
+// 真正的判据是 ErrorRatePercent。
+type Upstream5xxBreakerSettings struct {
+	// Enabled 是否启用。默认关闭，需管理端显式开启。
+	Enabled bool `json:"enabled"`
+	// WindowSeconds 错误率统计的滑动窗口（秒）
+	WindowSeconds int `json:"window_seconds"`
+	// MinSamples 窗口内最少样本数（成功+失败），不足则不判定，避免小流量误杀
+	MinSamples int `json:"min_samples"`
+	// ErrorRatePercent 窗口内 5xx 占比达到此百分比即熔断
+	ErrorRatePercent int `json:"error_rate_percent"`
+	// CooldownSeconds 首次熔断的回避时长（秒）
+	CooldownSeconds int `json:"cooldown_seconds"`
+	// MaxCooldownSeconds 反复熔断时的指数退避封顶（秒）；<=CooldownSeconds 表示不退避
+	MaxCooldownSeconds int `json:"max_cooldown_seconds"`
+	// MinHealthyAccounts 保底：同平台可调度账号数低于此值时停止熔断，
+	// 避免全网过载时把整个账号池一起摘掉（比不熔断更糟）。
+	MinHealthyAccounts int `json:"min_healthy_accounts"`
+}
+
+// DefaultUpstream5xxBreakerSettings 返回默认的 5xx 熔断配置（默认关闭；
+// 300秒窗口/至少20样本/错误率30%；回避120秒起，指数退避封顶1800秒；保底5个可调度账号）。
+func DefaultUpstream5xxBreakerSettings() *Upstream5xxBreakerSettings {
+	return &Upstream5xxBreakerSettings{
+		Enabled:            false,
+		WindowSeconds:      300,
+		MinSamples:         20,
+		ErrorRatePercent:   30,
+		CooldownSeconds:    120,
+		MaxCooldownSeconds: 1800,
+		MinHealthyAccounts: 5,
+	}
+}
+
 // DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒；熔断 5次/60秒；退避封顶600秒）
 func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
 	return &RateLimit429CooldownSettings{

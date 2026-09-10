@@ -479,6 +479,9 @@ type OpenAIGatewayService struct {
 	openaiOAuth429RetryStartedAt        sync.Map // key: int64(accountID), value: time.Time
 	openaiOAuth429TransientWindow       sync.Map // key: int64(accountID), value: *transient429Window (瞬时429滑动窗口计数)
 	openaiOAuth429BackoffStreak         sync.Map // key: int64(accountID), value: int (连续熔断次数，驱动指数退避)
+	openaiUpstream5xxWindows            sync.Map // key: int64(accountID), value: *upstream5xxWindow (5xx 错误率滑动窗口)
+	openaiUpstream5xxBreakerStates      sync.Map // key: int64(accountID), value: *upstream5xxBreakerState (熔断退避档位)
+	openaiUpstream5xxHealthyCounts      sync.Map // key: string(platform), value: *upstream5xxHealthyCount (可调度数保底计数缓存)
 	grokCredentialMutationLocks         sync.Map // key: int64(accountID), value: *sync.Mutex
 	openaiOAuth429WindowStartUnixNano   atomic.Int64
 	openaiOAuth429WindowCount           atomic.Int64

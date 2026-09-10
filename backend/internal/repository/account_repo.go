@@ -2325,6 +2325,42 @@ func (r *accountRepository) SetOverloaded(ctx context.Context, id int64, until t
 	return nil
 }
 
+// CountSchedulableByPlatform 统计指定平台当前真正可调度的账号数。
+// 判定条件与选路侧的"账号可用"保持一致，供 5xx 熔断的 MinHealthyAccounts
+// 保底使用，避免大面积上游过载时把整个账号池一起摘掉。
+func (r *accountRepository) CountSchedulableByPlatform(ctx context.Context, platform string) (int, error) {
+	if r == nil || r.sql == nil {
+		return 0, errors.New("account repository SQL executor is not configured")
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT COUNT(*)
+		FROM accounts a
+		WHERE a.deleted_at IS NULL
+			AND a.platform = $1
+			AND a.status = $2
+			AND a.schedulable IS TRUE
+			AND (a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW())
+			AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW())
+			AND (a.overload_until IS NULL OR a.overload_until <= NOW())
+			AND (a.auto_pause_on_expired IS NOT TRUE OR a.expires_at IS NULL OR a.expires_at > NOW())
+	`, platform, service.StatusActive)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var count int
+	if rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return 0, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r *accountRepository) SetTempUnschedulable(ctx context.Context, id int64, until time.Time, reason string) error {
 	result, err := r.sql.ExecContext(ctx, `
 		UPDATE accounts

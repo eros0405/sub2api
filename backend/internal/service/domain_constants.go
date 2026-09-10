@@ -547,6 +547,8 @@ const (
 
 	// SettingKeyRateLimit429CooldownSettings stores JSON config for 429 fallback cooldown handling.
 	SettingKeyRateLimit429CooldownSettings = "rate_limit_429_cooldown_settings"
+	// SettingKeyUpstream5xxBreakerSettings stores the opt-in upstream 5xx error-rate breaker config.
+	SettingKeyUpstream5xxBreakerSettings = "upstream_5xx_breaker_settings"
 	// SettingKeyOpenAIImagesOAuthUnavailableCooldownSettings stores the cooldown applied when the OAuth image tool is unavailable.
 	SettingKeyOpenAIImagesOAuthUnavailableCooldownSettings = "openai_images_oauth_unavailable_cooldown_settings"
 	// SettingKeyOpenAIAPIKeyHealthBreakerSettings stores the opt-in OpenAI pool API-key breaker config.

@@ -1319,6 +1319,35 @@ export async function updateRateLimit429CooldownSettings(
   return data;
 }
 
+// ==================== Upstream 5xx Breaker Settings ====================
+
+export interface Upstream5xxBreakerSettings {
+  enabled: boolean;
+  window_seconds: number;
+  min_samples: number;
+  error_rate_percent: number;
+  cooldown_seconds: number;
+  max_cooldown_seconds: number;
+  min_healthy_accounts: number;
+}
+
+export async function getUpstream5xxBreakerSettings(): Promise<Upstream5xxBreakerSettings> {
+  const { data } = await apiClient.get<Upstream5xxBreakerSettings>(
+    "/admin/settings/upstream-5xx-breaker",
+  );
+  return data;
+}
+
+export async function updateUpstream5xxBreakerSettings(
+  settings: Upstream5xxBreakerSettings,
+): Promise<Upstream5xxBreakerSettings> {
+  const { data } = await apiClient.put<Upstream5xxBreakerSettings>(
+    "/admin/settings/upstream-5xx-breaker",
+    settings,
+  );
+  return data;
+}
+
 // ==================== Panel Rate Limit Settings ====================
 
 /**
@@ -1578,6 +1607,8 @@ export const settingsAPI = {
   updateOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
+  getUpstream5xxBreakerSettings,
+  updateUpstream5xxBreakerSettings,
   getPanelRateLimitSettings,
   updatePanelRateLimitSettings,
   getStreamTimeoutSettings,

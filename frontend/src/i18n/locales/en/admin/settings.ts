@@ -1017,6 +1017,32 @@ export default {
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },
+      upstream5xxBreaker: {
+        title: 'Upstream 5xx Error-Rate Breaker',
+        description:
+          'Remove degraded accounts based on the 5xx error rate within a sliding window. Targets accounts individually throttled by upstream, where 5xxs alternate with successes and a consecutive-failure breaker never fires',
+        enabled: 'Enable 5xx Error-Rate Breaker',
+        enabledHint:
+          'Pause account scheduling when the 5xx rate in the window crosses the threshold, then auto-probe after the cooldown expires',
+        windowSeconds: 'Counting Window (seconds)',
+        windowSecondsHint: 'Sliding window used to compute the error rate (30-3600 seconds)',
+        minSamples: 'Minimum Samples',
+        minSamplesHint:
+          'Skip evaluation when successes+failures in the window fall below this count, so low-traffic accounts are not removed by mistake (1-10000)',
+        errorRatePercent: 'Error Rate Threshold (%)',
+        errorRatePercentHint:
+          'Trip when the 5xx share within the window reaches this percentage (1-100). Do not rely on absolute counts alone: a healthy high-volume account produces more absolute errors than a degraded low-volume one',
+        cooldownSeconds: 'Cooldown Duration (seconds)',
+        cooldownSecondsHint: 'Cooldown applied on the first trip (1-86400 seconds)',
+        maxCooldownSeconds: 'Backoff Cap (seconds)',
+        maxCooldownSecondsHint:
+          'Upper bound for exponentially increasing cooldown on repeated trips (seconds); ≤ cooldown duration disables exponential backoff',
+        minHealthyAccounts: 'Minimum Healthy Accounts',
+        minHealthyAccountsHint:
+          'Stop tripping when schedulable accounts on the same platform fall below this count, so a broad upstream outage cannot drain the whole pool (0 = disable the floor)',
+        saved: '5xx error-rate breaker settings saved',
+        saveFailed: 'Failed to save 5xx error-rate breaker settings'
+      },
       streamTimeout: {
         title: 'Stream Timeout Handling',
         description: 'Configure account handling strategy when upstream response times out',

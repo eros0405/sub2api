@@ -102,6 +102,78 @@ func (h *SettingHandler) UpdateOverloadCooldownSettings(c *gin.Context) {
 	})
 }
 
+// GetUpstream5xxBreakerSettings 获取上游5xx错误率熔断配置
+// GET /api/v1/admin/settings/upstream-5xx-breaker
+func (h *SettingHandler) GetUpstream5xxBreakerSettings(c *gin.Context) {
+	settings, err := h.settingService.GetUpstream5xxBreakerSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.Upstream5xxBreakerSettings{
+		Enabled:            settings.Enabled,
+		WindowSeconds:      settings.WindowSeconds,
+		MinSamples:         settings.MinSamples,
+		ErrorRatePercent:   settings.ErrorRatePercent,
+		CooldownSeconds:    settings.CooldownSeconds,
+		MaxCooldownSeconds: settings.MaxCooldownSeconds,
+		MinHealthyAccounts: settings.MinHealthyAccounts,
+	})
+}
+
+// UpdateUpstream5xxBreakerSettingsRequest 更新上游5xx错误率熔断配置请求
+type UpdateUpstream5xxBreakerSettingsRequest struct {
+	Enabled            bool `json:"enabled"`
+	WindowSeconds      int  `json:"window_seconds"`
+	MinSamples         int  `json:"min_samples"`
+	ErrorRatePercent   int  `json:"error_rate_percent"`
+	CooldownSeconds    int  `json:"cooldown_seconds"`
+	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
+	MinHealthyAccounts int  `json:"min_healthy_accounts"`
+}
+
+// UpdateUpstream5xxBreakerSettings 更新上游5xx错误率熔断配置
+// PUT /api/v1/admin/settings/upstream-5xx-breaker
+func (h *SettingHandler) UpdateUpstream5xxBreakerSettings(c *gin.Context) {
+	var req UpdateUpstream5xxBreakerSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	settings := &service.Upstream5xxBreakerSettings{
+		Enabled:            req.Enabled,
+		WindowSeconds:      req.WindowSeconds,
+		MinSamples:         req.MinSamples,
+		ErrorRatePercent:   req.ErrorRatePercent,
+		CooldownSeconds:    req.CooldownSeconds,
+		MaxCooldownSeconds: req.MaxCooldownSeconds,
+		MinHealthyAccounts: req.MinHealthyAccounts,
+	}
+
+	if err := h.settingService.SetUpstream5xxBreakerSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	updatedSettings, err := h.settingService.GetUpstream5xxBreakerSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.Upstream5xxBreakerSettings{
+		Enabled:            updatedSettings.Enabled,
+		WindowSeconds:      updatedSettings.WindowSeconds,
+		MinSamples:         updatedSettings.MinSamples,
+		ErrorRatePercent:   updatedSettings.ErrorRatePercent,
+		CooldownSeconds:    updatedSettings.CooldownSeconds,
+		MaxCooldownSeconds: updatedSettings.MaxCooldownSeconds,
+		MinHealthyAccounts: updatedSettings.MinHealthyAccounts,
+	})
+}
+
 // GetRateLimit429CooldownSettings 获取429默认回避配置
 // GET /api/v1/admin/settings/rate-limit-429-cooldown
 func (h *SettingHandler) GetRateLimit429CooldownSettings(c *gin.Context) {

@@ -491,6 +491,227 @@
             </div>
           </div>
 
+          <!-- Upstream 5xx Error-Rate Breaker Settings -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.upstream5xxBreaker.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.upstream5xxBreaker.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div
+                v-if="upstream5xxBreakerLoading"
+                class="flex items-center gap-2 text-gray-500"
+              >
+                <div
+                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
+                ></div>
+                {{ t("common.loading") }}
+              </div>
+
+              <template v-else>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.upstream5xxBreaker.enabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.upstream5xxBreaker.enabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="upstream5xxBreakerForm.enabled" />
+                </div>
+
+                <div
+                  v-if="upstream5xxBreakerForm.enabled"
+                  class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.upstream5xxBreaker.windowSeconds") }}
+                    </label>
+                    <input
+                      v-model.number="upstream5xxBreakerForm.window_seconds"
+                      type="number"
+                      min="30"
+                      max="3600"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.upstream5xxBreaker.windowSecondsHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.upstream5xxBreaker.minSamples") }}
+                    </label>
+                    <input
+                      v-model.number="upstream5xxBreakerForm.min_samples"
+                      type="number"
+                      min="1"
+                      max="10000"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.upstream5xxBreaker.minSamplesHint") }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t("admin.settings.upstream5xxBreaker.errorRatePercent")
+                      }}
+                    </label>
+                    <input
+                      v-model.number="upstream5xxBreakerForm.error_rate_percent"
+                      type="number"
+                      min="1"
+                      max="100"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.upstream5xxBreaker.errorRatePercentHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t("admin.settings.upstream5xxBreaker.cooldownSeconds")
+                      }}
+                    </label>
+                    <input
+                      v-model.number="upstream5xxBreakerForm.cooldown_seconds"
+                      type="number"
+                      min="1"
+                      max="86400"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.upstream5xxBreaker.cooldownSecondsHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t("admin.settings.upstream5xxBreaker.maxCooldownSeconds")
+                      }}
+                    </label>
+                    <input
+                      v-model.number="
+                        upstream5xxBreakerForm.max_cooldown_seconds
+                      "
+                      type="number"
+                      min="0"
+                      max="86400"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.upstream5xxBreaker.maxCooldownSecondsHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t("admin.settings.upstream5xxBreaker.minHealthyAccounts")
+                      }}
+                    </label>
+                    <input
+                      v-model.number="
+                        upstream5xxBreakerForm.min_healthy_accounts
+                      "
+                      type="number"
+                      min="0"
+                      max="10000"
+                      class="input w-32"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        t(
+                          "admin.settings.upstream5xxBreaker.minHealthyAccountsHint",
+                        )
+                      }}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <button
+                    type="button"
+                    @click="saveUpstream5xxBreakerSettings"
+                    :disabled="upstream5xxBreakerSaving"
+                    class="btn btn-primary btn-sm"
+                  >
+                    <svg
+                      v-if="upstream5xxBreakerSaving"
+                      class="mr-1 h-4 w-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    {{
+                      upstream5xxBreakerSaving
+                        ? t("common.saving")
+                        : t("common.save")
+                    }}
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+
           <!-- Stream Timeout Settings -->
           <div class="card">
             <div
@@ -9085,6 +9306,19 @@ const rateLimit429CooldownForm = reactive({
   max_cooldown_seconds: 600,
 });
 
+// Upstream 5xx Error-Rate Breaker 状态
+const upstream5xxBreakerLoading = ref(true);
+const upstream5xxBreakerSaving = ref(false);
+const upstream5xxBreakerForm = reactive({
+  enabled: false,
+  window_seconds: 300,
+  min_samples: 20,
+  error_rate_percent: 30,
+  cooldown_seconds: 120,
+  max_cooldown_seconds: 1800,
+  min_healthy_accounts: 5,
+});
+
 // Panel API Rate Limit 状态
 const panelRateLimitLoading = ref(true);
 const panelRateLimitSaving = ref(false);
@@ -12013,6 +12247,45 @@ async function saveRateLimit429CooldownSettings() {
   }
 }
 
+// Upstream 5xx Error-Rate Breaker 方法
+async function loadUpstream5xxBreakerSettings() {
+  upstream5xxBreakerLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getUpstream5xxBreakerSettings();
+    Object.assign(upstream5xxBreakerForm, settings);
+  } catch (_error: unknown) {
+    // Silent fail - settings will use defaults
+  } finally {
+    upstream5xxBreakerLoading.value = false;
+  }
+}
+
+async function saveUpstream5xxBreakerSettings() {
+  upstream5xxBreakerSaving.value = true;
+  try {
+    const updated = await adminAPI.settings.updateUpstream5xxBreakerSettings({
+      enabled: upstream5xxBreakerForm.enabled,
+      window_seconds: upstream5xxBreakerForm.window_seconds,
+      min_samples: upstream5xxBreakerForm.min_samples,
+      error_rate_percent: upstream5xxBreakerForm.error_rate_percent,
+      cooldown_seconds: upstream5xxBreakerForm.cooldown_seconds,
+      max_cooldown_seconds: upstream5xxBreakerForm.max_cooldown_seconds,
+      min_healthy_accounts: upstream5xxBreakerForm.min_healthy_accounts,
+    });
+    Object.assign(upstream5xxBreakerForm, updated);
+    appStore.showSuccess(t("admin.settings.upstream5xxBreaker.saved"));
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        t("admin.settings.upstream5xxBreaker.saveFailed"),
+      ),
+    );
+  } finally {
+    upstream5xxBreakerSaving.value = false;
+  }
+}
+
 // Stream Timeout 方法
 async function loadStreamTimeoutSettings() {
   streamTimeoutLoading.value = true;
@@ -12659,6 +12932,7 @@ onMounted(() => {
   loadOllamaCloudUsageSettings();
   loadOverloadCooldownSettings();
   loadRateLimit429CooldownSettings();
+  loadUpstream5xxBreakerSettings();
   loadPanelRateLimitSettings();
   loadStreamTimeoutSettings();
   loadRectifierSettings();

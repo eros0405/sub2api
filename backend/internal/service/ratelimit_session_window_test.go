@@ -441,3 +441,7 @@ func TestUpdateSessionWindow_NoStatusHeader(t *testing.T) {
 		t.Errorf("expected no calls when status header absent, got %d", len(repo.sessionWindowCalls))
 	}
 }
+
+func (*sessionWindowMockRepo) CountSchedulableByPlatform(context.Context, string) (int, error) {
+	return 0, nil
+}

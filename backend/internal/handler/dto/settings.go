@@ -454,6 +454,17 @@ type RateLimit429CooldownSettings struct {
 	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
 }
 
+// Upstream5xxBreakerSettings 上游5xx错误率熔断配置 DTO
+type Upstream5xxBreakerSettings struct {
+	Enabled            bool `json:"enabled"`
+	WindowSeconds      int  `json:"window_seconds"`
+	MinSamples         int  `json:"min_samples"`
+	ErrorRatePercent   int  `json:"error_rate_percent"`
+	CooldownSeconds    int  `json:"cooldown_seconds"`
+	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
+	MinHealthyAccounts int  `json:"min_healthy_accounts"`
+}
+
 type OpenAIImagesOAuthUnavailableCooldownSettings struct {
 	CooldownMinutes int `json:"cooldown_minutes"`
 }

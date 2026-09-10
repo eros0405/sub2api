@@ -103,6 +103,7 @@ type AccountRepository interface {
 	SetModelRateLimit(ctx context.Context, id int64, scope string, resetAt time.Time, reason ...string) error
 	SetOverloaded(ctx context.Context, id int64, until time.Time) error
 	SetTempUnschedulable(ctx context.Context, id int64, until time.Time, reason string) error
+	CountSchedulableByPlatform(ctx context.Context, platform string) (int, error)
 	ClearTempUnschedulable(ctx context.Context, id int64) error
 	ClearRateLimit(ctx context.Context, id int64) error
 	ClearAntigravityQuotaScopes(ctx context.Context, id int64) error

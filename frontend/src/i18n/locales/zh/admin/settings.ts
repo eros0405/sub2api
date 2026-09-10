@@ -1011,6 +1011,29 @@ export default {
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },
+      upstream5xxBreaker: {
+        title: '上游 5xx 错误率熔断',
+        description:
+          '按滑动窗口内的 5xx 错误率摘除劣化账号。适用于账号被上游单独软风控的场景：此时 5xx 与成功交替出现，连败式熔断无法识别',
+        enabled: '启用 5xx 错误率熔断',
+        enabledHint: '窗口内 5xx 占比越界时暂停该账号调度，回避到期自动放回试探',
+        windowSeconds: '统计窗口（秒）',
+        windowSecondsHint: '错误率统计的滑动窗口时长（30-3600 秒）',
+        minSamples: '最小样本数',
+        minSamplesHint: '窗口内成功+失败少于此数量时不判定，避免小流量账号被误摘（1-10000）',
+        errorRatePercent: '错误率阈值（%）',
+        errorRatePercentHint:
+          '窗口内 5xx 占比达到此百分比即熔断（1-100）。不要单用绝对次数判定：高流量健康账号的绝对错误数会超过低流量劣化账号',
+        cooldownSeconds: '回避时长（秒）',
+        cooldownSecondsHint: '首次熔断的回避持续时间（1-86400 秒）',
+        maxCooldownSeconds: '退避封顶（秒）',
+        maxCooldownSecondsHint: '反复熔断时回避时长按倍数递增的上限（秒）；≤ 回避时长表示不启用指数退避',
+        minHealthyAccounts: '保底可调度账号数',
+        minHealthyAccountsHint:
+          '同平台可调度账号数低于此值时停止熔断，避免全网过载时把整个账号池一起摘掉（0 = 关闭保底）',
+        saved: '5xx 错误率熔断设置保存成功',
+        saveFailed: '保存 5xx 错误率熔断设置失败'
+      },
       streamTimeout: {
         title: '流超时处理',
         description: '配置上游响应超时时的账户处理策略，避免问题账户持续被选中',

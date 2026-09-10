@@ -775,6 +775,107 @@ func normalizeRateLimit429BreakerFields(settings *RateLimit429CooldownSettings) 
 	}
 }
 
+// GetUpstream5xxBreakerSettings 获取上游 5xx 错误率熔断配置
+func (s *SettingService) GetUpstream5xxBreakerSettings(ctx context.Context) (*Upstream5xxBreakerSettings, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyUpstream5xxBreakerSettings)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return DefaultUpstream5xxBreakerSettings(), nil
+		}
+		return nil, fmt.Errorf("get upstream 5xx breaker settings: %w", err)
+	}
+	if strings.TrimSpace(value) == "" {
+		return DefaultUpstream5xxBreakerSettings(), nil
+	}
+
+	var settings Upstream5xxBreakerSettings
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return DefaultUpstream5xxBreakerSettings(), nil
+	}
+	normalizeUpstream5xxBreakerFields(&settings)
+	return &settings, nil
+}
+
+// normalizeUpstream5xxBreakerFields 对熔断字段做边界归一化。
+// 关键字段全为 0 时视为旧数据/空配置，整体回填默认值。
+func normalizeUpstream5xxBreakerFields(settings *Upstream5xxBreakerSettings) {
+	def := DefaultUpstream5xxBreakerSettings()
+	if settings.WindowSeconds == 0 && settings.MinSamples == 0 &&
+		settings.ErrorRatePercent == 0 && settings.CooldownSeconds == 0 {
+		enabled := settings.Enabled
+		*settings = *def
+		settings.Enabled = enabled
+		return
+	}
+	if settings.WindowSeconds < 30 {
+		settings.WindowSeconds = 30
+	}
+	if settings.WindowSeconds > 3600 {
+		settings.WindowSeconds = 3600
+	}
+	// 样本下限至少 1，否则单次失败即可判定 100% 错误率。
+	if settings.MinSamples < 1 {
+		settings.MinSamples = def.MinSamples
+	}
+	if settings.MinSamples > 10000 {
+		settings.MinSamples = 10000
+	}
+	// 错误率必须落在 1-100；0 会让任何账号立即熔断。
+	if settings.ErrorRatePercent < 1 {
+		settings.ErrorRatePercent = def.ErrorRatePercent
+	}
+	if settings.ErrorRatePercent > 100 {
+		settings.ErrorRatePercent = 100
+	}
+	if settings.CooldownSeconds < 1 {
+		settings.CooldownSeconds = def.CooldownSeconds
+	}
+	if settings.CooldownSeconds > 86400 {
+		settings.CooldownSeconds = 86400
+	}
+	if settings.MaxCooldownSeconds < 0 {
+		settings.MaxCooldownSeconds = 0
+	}
+	if settings.MaxCooldownSeconds > 86400 {
+		settings.MaxCooldownSeconds = 86400
+	}
+	if settings.MinHealthyAccounts < 0 {
+		settings.MinHealthyAccounts = 0
+	}
+	if settings.MinHealthyAccounts > 10000 {
+		settings.MinHealthyAccounts = 10000
+	}
+}
+
+// SetUpstream5xxBreakerSettings 设置上游 5xx 错误率熔断配置
+func (s *SettingService) SetUpstream5xxBreakerSettings(ctx context.Context, settings *Upstream5xxBreakerSettings) error {
+	if settings == nil {
+		return fmt.Errorf("settings cannot be nil")
+	}
+	if settings.Enabled {
+		if settings.WindowSeconds < 30 || settings.WindowSeconds > 3600 {
+			return fmt.Errorf("window_seconds must be between 30-3600")
+		}
+		if settings.MinSamples < 1 || settings.MinSamples > 10000 {
+			return fmt.Errorf("min_samples must be between 1-10000")
+		}
+		if settings.ErrorRatePercent < 1 || settings.ErrorRatePercent > 100 {
+			return fmt.Errorf("error_rate_percent must be between 1-100")
+		}
+		if settings.CooldownSeconds < 1 || settings.CooldownSeconds > 86400 {
+			return fmt.Errorf("cooldown_seconds must be between 1-86400")
+		}
+	}
+	normalizeUpstream5xxBreakerFields(settings)
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal upstream 5xx breaker settings: %w", err)
+	}
+
+	return s.settingRepo.Set(ctx, SettingKeyUpstream5xxBreakerSettings, string(data))
+}
+
 // SetRateLimit429CooldownSettings 设置429默认回避配置
 func (s *SettingService) SetRateLimit429CooldownSettings(ctx context.Context, settings *RateLimit429CooldownSettings) error {
 	if settings == nil {
