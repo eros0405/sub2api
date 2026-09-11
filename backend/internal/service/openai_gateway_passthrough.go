@@ -1633,6 +1633,22 @@ func (s *OpenAIGatewayService) handleOpenAIStreamTerminalAccountSideEffects(
 			accountHeaders = openAIWSSemantic429Headers(account, model, headers)
 		}
 		return statusCode, s.handleOpenAIAccountUpstreamError(ctx, account, statusCode, accountHeaders, payload, model)
+	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout, 520, 521, 522, 523, 524:
+		// mid-stream 5xx：SSE 流已建立（客户端 HTTP=200），上游中途返回 5xx。
+		// 这类错误占上游 5xx 的大头，若不在此接入账号级 5xx 错误率熔断，
+		// handleOpenAIAccountUpstreamError 永远收不到 mid-stream 的真实上游状态，
+		// maybeTripUpstream5xxBreaker 结构上不可达。此处把真实 statusCode 透传进去，
+		// 由 shouldCooldownOpenAITransientUpstreamError/capacity-shed 豁免负责细分。
+		ctx := context.Background()
+		if c != nil && c.Request != nil {
+			ctx = c.Request.Context()
+		}
+		model := firstNonEmpty(canonicalModel...)
+		if model == "" {
+			model = firstNonEmpty(gjson.GetBytes(payload, "model").String(), gjson.GetBytes(payload, "response.model").String())
+		}
+		return statusCode, s.handleOpenAIAccountUpstreamError(ctx, account, statusCode, headers, payload, model)
 	default:
 		return statusCode, false
 	}
