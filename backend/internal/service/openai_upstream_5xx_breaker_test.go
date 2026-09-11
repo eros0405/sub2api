@@ -3,7 +3,10 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -83,6 +86,39 @@ func TestUpstream5xxBreakerTripsOnAlternatingFailures(t *testing.T) {
 
 	require.True(t, tripped, "alternating success/failure at 50%% error rate must trip the breaker")
 	require.Equal(t, 1, repo.setCalls, "trip must persist to temp_unschedulable_until exactly once")
+	require.Contains(t, repo.lastReason, "upstream 5xx breaker:")
+}
+
+// 回归：mid-stream 5xx（SSE 已建立、客户端 HTTP=200、上游中途 5xx）必须
+// 经 handleOpenAIStreamTerminalAccountSideEffects 计入账号级 5xx 熔断。
+// 修复前该 switch 只覆盖 401/403/429/529，5xx 落 default 被丢弃，
+// 导致线上占上游 5xx 约 2/3 的 mid-stream 503 永不触发熔断。
+func TestUpstream5xxBreakerCountsMidStreamFailure(t *testing.T) {
+	repo := &upstream5xxAccountRepo{schedulableCount: 100}
+	svc := newUpstream5xxService(t, upstream5xxTestSettings(), repo)
+	rateLimits := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	rateLimits.SetSettingService(svc.settingService)
+	rateLimits.SetAccountRuntimeBlocker(svc)
+	svc.rateLimitService = rateLimits
+	account := upstream5xxTestAccount()
+
+	// 普通 mid-stream 错误事件：openAIStreamFailureStatus 解析为 502（非 capacity-shed）。
+	payload := []byte(`{"type":"error","error":{"type":"server_error","message":"internal error"}}`)
+
+	tripped := false
+	// 交替 6 失败 / 6 成功 = 50% > 40% 阈值，且样本 12 > MinSamples 10。
+	for i := 0; i < 6; i++ {
+		svc.observeUpstream5xxSuccess(context.Background(), account)
+		status, _ := svc.handleOpenAIStreamTerminalAccountSideEffects(
+			nil, account, payload, "internal error", http.Header{}, "gpt-5.6-sol",
+		)
+		require.Equal(t, http.StatusBadGateway, status, "mid-stream generic 5xx must resolve to 502")
+		if repo.setCalls > 0 {
+			tripped = true
+		}
+	}
+
+	require.True(t, tripped, "mid-stream 5xx must reach the breaker and trip temp_unschedulable")
 	require.Contains(t, repo.lastReason, "upstream 5xx breaker:")
 }
 
