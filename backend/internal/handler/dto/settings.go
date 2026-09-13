@@ -489,6 +489,12 @@ type PanelRateLimitSettings struct {
 	PublicIPRPM int  `json:"public_ip_rpm"`
 }
 
+// PanelIPWhitelistSettings 面板 IP 白名单配置 DTO
+type PanelIPWhitelistSettings struct {
+	Enabled   bool     `json:"enabled"`
+	Whitelist []string `json:"whitelist"`
+}
+
 // StreamTimeoutSettings 流超时处理配置 DTO
 type StreamTimeoutSettings struct {
 	Enabled                bool   `json:"enabled"`

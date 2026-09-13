@@ -329,6 +329,58 @@ func (h *SettingHandler) UpdatePanelRateLimitSettings(c *gin.Context) {
 	})
 }
 
+// GetPanelIPWhitelistSettings 获取面板 IP 白名单配置
+// GET /api/v1/admin/settings/panel-ip-whitelist
+func (h *SettingHandler) GetPanelIPWhitelistSettings(c *gin.Context) {
+	settings, err := h.settingService.GetPanelIPWhitelistSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.PanelIPWhitelistSettings{
+		Enabled:   settings.Enabled,
+		Whitelist: settings.Whitelist,
+	})
+}
+
+// UpdatePanelIPWhitelistSettingsRequest 更新面板 IP 白名单配置请求
+type UpdatePanelIPWhitelistSettingsRequest struct {
+	Enabled   bool     `json:"enabled"`
+	Whitelist []string `json:"whitelist"`
+}
+
+// UpdatePanelIPWhitelistSettings 更新面板 IP 白名单配置
+// PUT /api/v1/admin/settings/panel-ip-whitelist
+func (h *SettingHandler) UpdatePanelIPWhitelistSettings(c *gin.Context) {
+	var req UpdatePanelIPWhitelistSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	settings := &service.PanelIPWhitelistSettings{
+		Enabled:   req.Enabled,
+		Whitelist: req.Whitelist,
+	}
+
+	if err := h.settingService.SetPanelIPWhitelistSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	updatedSettings, err := h.settingService.GetPanelIPWhitelistSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.PanelIPWhitelistSettings{
+		Enabled:   updatedSettings.Enabled,
+		Whitelist: updatedSettings.Whitelist,
+	})
+}
+
 // GetStreamTimeoutSettings 获取流超时处理配置
 // GET /api/v1/admin/settings/stream-timeout
 func (h *SettingHandler) GetStreamTimeoutSettings(c *gin.Context) {

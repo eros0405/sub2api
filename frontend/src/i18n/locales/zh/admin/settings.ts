@@ -210,6 +210,18 @@ export default {
         saved: '面板接口限流配置已保存',
         saveFailed: '保存面板接口限流配置失败'
       },
+      panelIpWhitelist: {
+        title: '面板 IP 白名单',
+        description: '限制访问面板（管理后台与用户面板页面及其接口）的来源 IP，不在白名单内的来源将返回 403',
+        lockoutWarning: '启用前请确认当前出口 IP 已在白名单中，否则保存后你将无法再访问面板（只能通过数据库改 settings 表中的 panel_ip_whitelist_settings 恢复）。',
+        enabled: '启用 IP 白名单',
+        enabledHint: '开启后仅允许白名单内的 IP/CIDR 访问面板；白名单为空时放行所有来源。仅影响面板，不影响 /v1 代理接口与支付回调。',
+        whitelist: '白名单列表',
+        whitelistHint: '每行一条，支持单个 IP 或 CIDR 网段，例如 1.2.3.4 或 10.0.0.0/8。',
+        placeholder: '1.2.3.4\n10.0.0.0/8',
+        saved: '面板 IP 白名单配置已保存',
+        saveFailed: '保存面板 IP 白名单配置失败'
+      },
       turnstile: {
         title: 'Cloudflare Turnstile',
         description: '登录和注册的机器人防护',

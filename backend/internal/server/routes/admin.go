@@ -585,6 +585,10 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)
 		adminSettings.PUT("/panel-rate-limit", h.Admin.Setting.UpdatePanelRateLimitSettings)
+
+		// 面板 IP 白名单
+		adminSettings.GET("/panel-ip-whitelist", h.Admin.Setting.GetPanelIPWhitelistSettings)
+		adminSettings.PUT("/panel-ip-whitelist", h.Admin.Setting.UpdatePanelIPWhitelistSettings)
 		// 流超时处理配置
 		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
 		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)

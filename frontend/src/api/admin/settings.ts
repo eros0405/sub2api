@@ -1388,6 +1388,33 @@ export async function updatePanelRateLimitSettings(
   return data;
 }
 
+/**
+ * Panel IP whitelist settings.
+ * Restricts panel (admin & user pages and their /api/v1 panel endpoints) to
+ * the configured IP/CIDR list; empty list or disabled = allow all.
+ */
+export interface PanelIPWhitelistSettings {
+  enabled: boolean;
+  whitelist: string[];
+}
+
+export async function getPanelIPWhitelistSettings(): Promise<PanelIPWhitelistSettings> {
+  const { data } = await apiClient.get<PanelIPWhitelistSettings>(
+    "/admin/settings/panel-ip-whitelist",
+  );
+  return data;
+}
+
+export async function updatePanelIPWhitelistSettings(
+  settings: PanelIPWhitelistSettings,
+): Promise<PanelIPWhitelistSettings> {
+  const { data } = await apiClient.put<PanelIPWhitelistSettings>(
+    "/admin/settings/panel-ip-whitelist",
+    settings,
+  );
+  return data;
+}
+
 // ==================== Stream Timeout Settings ====================
 
 /**
@@ -1619,6 +1646,8 @@ export const settingsAPI = {
   updateUpstream5xxBreakerSettings,
   getPanelRateLimitSettings,
   updatePanelRateLimitSettings,
+  getPanelIPWhitelistSettings,
+  updatePanelIPWhitelistSettings,
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,
   getRectifierSettings,

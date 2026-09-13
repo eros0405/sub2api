@@ -2334,6 +2334,128 @@
             </div>
           </div>
 
+          <!-- Panel IP Whitelist Settings -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <div class="flex items-center gap-2">
+                <Icon
+                  name="shield"
+                  size="md"
+                  class="text-primary-500"
+                />
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {{ t("admin.settings.panelIpWhitelist.title") }}
+                </h2>
+              </div>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.panelIpWhitelist.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div
+                v-if="panelIpWhitelistLoading"
+                class="flex items-center gap-2 text-gray-500"
+              >
+                <div
+                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
+                ></div>
+                {{ t("common.loading") }}
+              </div>
+
+              <template v-else>
+                <div
+                  class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"
+                >
+                  <div class="flex items-start">
+                    <Icon
+                      name="exclamationTriangle"
+                      size="md"
+                      class="mt-0.5 flex-shrink-0 text-amber-500"
+                    />
+                    <p class="ml-3 text-sm text-amber-700 dark:text-amber-300">
+                      {{ t("admin.settings.panelIpWhitelist.lockoutWarning") }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.panelIpWhitelist.enabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.panelIpWhitelist.enabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="panelIpWhitelistForm.enabled" />
+                </div>
+
+                <div
+                  v-if="panelIpWhitelistForm.enabled"
+                  class="space-y-5 border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.panelIpWhitelist.whitelist") }}
+                    </label>
+                    <textarea
+                      v-model="panelIpWhitelistForm.whitelistText"
+                      data-testid="panel-ip-whitelist-list"
+                      rows="6"
+                      class="input font-mono text-sm"
+                      :placeholder="t('admin.settings.panelIpWhitelist.placeholder')"
+                    ></textarea>
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.panelIpWhitelist.whitelistHint") }}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <button
+                    type="button"
+                    data-testid="panel-ip-whitelist-save"
+                    @click="savePanelIpWhitelistSettings"
+                    :disabled="panelIpWhitelistSaving"
+                    class="btn btn-primary btn-sm"
+                  >
+                    <svg
+                      v-if="panelIpWhitelistSaving"
+                      class="mr-1 h-4 w-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    {{
+                      panelIpWhitelistSaving
+                        ? t("common.saving")
+                        : t("common.save")
+                    }}
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+
           <!-- 人机验证 Settings -->
           <div class="card">
             <div
@@ -9379,6 +9501,14 @@ const panelRateLimitForm = reactive({
   public_ip_rpm: 300,
 });
 
+// Panel IP Whitelist 状态
+const panelIpWhitelistLoading = ref(true);
+const panelIpWhitelistSaving = ref(false);
+const panelIpWhitelistForm = reactive({
+  enabled: false,
+  whitelistText: "",
+});
+
 // Stream Timeout 状态
 const streamTimeoutLoading = ref(true);
 const streamTimeoutSaving = ref(false);
@@ -12282,6 +12412,46 @@ async function savePanelRateLimitSettings() {
   }
 }
 
+// Panel IP Whitelist 方法
+async function loadPanelIpWhitelistSettings() {
+  panelIpWhitelistLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getPanelIPWhitelistSettings();
+    panelIpWhitelistForm.enabled = settings.enabled;
+    panelIpWhitelistForm.whitelistText = (settings.whitelist ?? []).join("\n");
+  } catch (_error: unknown) {
+    // Silent fail - settings will use defaults
+  } finally {
+    panelIpWhitelistLoading.value = false;
+  }
+}
+
+async function savePanelIpWhitelistSettings() {
+  panelIpWhitelistSaving.value = true;
+  try {
+    const whitelist = panelIpWhitelistForm.whitelistText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
+    const updated = await adminAPI.settings.updatePanelIPWhitelistSettings({
+      enabled: panelIpWhitelistForm.enabled,
+      whitelist,
+    });
+    panelIpWhitelistForm.enabled = updated.enabled;
+    panelIpWhitelistForm.whitelistText = (updated.whitelist ?? []).join("\n");
+    appStore.showSuccess(t("admin.settings.panelIpWhitelist.saved"));
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        t("admin.settings.panelIpWhitelist.saveFailed"),
+      ),
+    );
+  } finally {
+    panelIpWhitelistSaving.value = false;
+  }
+}
+
 // Rate Limit Cooldown (429) 方法
 async function loadRateLimit429CooldownSettings() {
   rateLimit429CooldownLoading.value = true;
@@ -13007,6 +13177,7 @@ onMounted(() => {
   loadRateLimit429CooldownSettings();
   loadUpstream5xxBreakerSettings();
   loadPanelRateLimitSettings();
+  loadPanelIpWhitelistSettings();
   loadStreamTimeoutSettings();
   loadRectifierSettings();
   loadBetaPolicySettings();

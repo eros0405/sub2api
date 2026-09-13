@@ -210,6 +210,18 @@ export default {
         saved: 'Panel rate limit settings saved',
         saveFailed: 'Failed to save panel rate limit settings'
       },
+      panelIpWhitelist: {
+        title: 'Panel IP Whitelist',
+        description: 'Restrict access to the panel (admin & user pages and their endpoints) to whitelisted source IPs; other sources get HTTP 403',
+        lockoutWarning: 'Before enabling, make sure your current egress IP is in the whitelist — otherwise you will be locked out of the panel (recover only by editing panel_ip_whitelist_settings in the settings table directly in the database).',
+        enabled: 'Enable IP whitelist',
+        enabledHint: 'When enabled, only IPs/CIDRs in the whitelist can access the panel; an empty whitelist allows all sources. Only affects the panel — /v1 proxy endpoints and payment webhooks are unaffected.',
+        whitelist: 'Whitelist entries',
+        whitelistHint: 'One entry per line. Supports single IPs or CIDR ranges, e.g. 1.2.3.4 or 10.0.0.0/8.',
+        placeholder: '1.2.3.4\n10.0.0.0/8',
+        saved: 'Panel IP whitelist settings saved',
+        saveFailed: 'Failed to save panel IP whitelist settings'
+      },
       turnstile: {
         title: 'Cloudflare Turnstile',
         description: 'Bot protection for login and registration',

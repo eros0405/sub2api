@@ -70,6 +70,11 @@ func SetupRouter(
 	}))
 	r.Use(middleware2.ServerTiming(cfg.Server.EnableServerTiming))
 
+	// 面板 IP 白名单：管理员在系统设置中动态维护；非白名单 IP 访问面板返回 403。
+	// /v1 网关代理、健康检查、支付回调等路径在中间件内部豁免。
+	panelIPWhitelist := middleware2.NewPanelIPWhitelist(settingService)
+	r.Use(panelIPWhitelist.Handler())
+
 	// Serve embedded frontend with settings injection if available
 	if web.HasEmbeddedFrontend() {
 		frontendServer, err := web.NewFrontendServer(settingService) //nolint:staticcheck // SA4023: the !embed stub always errors; embed builds can return nil
