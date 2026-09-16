@@ -1308,6 +1308,8 @@ export interface RateLimit429CooldownSettings {
   window_seconds: number;
   transient_threshold: number;
   max_cooldown_seconds: number;
+  /** 是否对 ChatGPT Business Premium 账号生效 */
+  apply_to_business_premium: boolean;
 }
 
 export async function getRateLimit429CooldownSettings(): Promise<RateLimit429CooldownSettings> {
@@ -1337,6 +1339,8 @@ export interface Upstream5xxBreakerSettings {
   cooldown_seconds: number;
   max_cooldown_seconds: number;
   min_healthy_accounts: number;
+  /** 是否对 ChatGPT Business Premium 账号生效 */
+  apply_to_business_premium: boolean;
 }
 
 export async function getUpstream5xxBreakerSettings(): Promise<Upstream5xxBreakerSettings> {

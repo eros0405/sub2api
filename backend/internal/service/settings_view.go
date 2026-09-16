@@ -582,6 +582,19 @@ type RateLimit429CooldownSettings struct {
 	TransientThreshold int `json:"transient_threshold"`
 	// MaxCooldownSeconds 反复熔断时的指数退避封顶（秒）；<=CooldownSeconds 表示不退避，恒定回避时长
 	MaxCooldownSeconds int `json:"max_cooldown_seconds"`
+	// ApplyToBusinessPremium 是否对 ChatGPT Business Premium 账号生效。
+	// 指针类型：老配置里没有该字段，nil 表示"未配置"并按默认（生效）处理，
+	// 避免升级后 Business Premium 账号被静默排除在回避之外。
+	ApplyToBusinessPremium *bool `json:"apply_to_business_premium,omitempty"`
+}
+
+// AppliesToBusinessPremium 返回该配置是否对 Business Premium 账号生效。
+// 未配置（nil）时默认生效，保持升级前后行为一致。
+func (s *RateLimit429CooldownSettings) AppliesToBusinessPremium() bool {
+	if s == nil || s.ApplyToBusinessPremium == nil {
+		return true
+	}
+	return *s.ApplyToBusinessPremium
 }
 
 // OpenAIImagesOAuthUnavailableCooldownSettings controls how long an OAuth account's image capability is paused when unavailable.
@@ -644,30 +657,46 @@ type Upstream5xxBreakerSettings struct {
 	// MinHealthyAccounts 保底：同平台可调度账号数低于此值时停止熔断，
 	// 避免全网过载时把整个账号池一起摘掉（比不熔断更糟）。
 	MinHealthyAccounts int `json:"min_healthy_accounts"`
+	// ApplyToBusinessPremium 是否对 ChatGPT Business Premium 账号生效。
+	// 指针类型：老配置里没有该字段，nil 表示"未配置"并按默认（生效）处理。
+	ApplyToBusinessPremium *bool `json:"apply_to_business_premium,omitempty"`
+}
+
+// AppliesToBusinessPremium 返回该配置是否对 Business Premium 账号生效。
+// 未配置（nil）时默认生效，保持升级前后行为一致。
+func (s *Upstream5xxBreakerSettings) AppliesToBusinessPremium() bool {
+	if s == nil || s.ApplyToBusinessPremium == nil {
+		return true
+	}
+	return *s.ApplyToBusinessPremium
 }
 
 // DefaultUpstream5xxBreakerSettings 返回默认的 5xx 熔断配置（默认关闭；
 // 300秒窗口/至少20样本/错误率30%；回避120秒起，指数退避封顶1800秒；保底5个可调度账号）。
 func DefaultUpstream5xxBreakerSettings() *Upstream5xxBreakerSettings {
+	applyToBusinessPremium := true
 	return &Upstream5xxBreakerSettings{
-		Enabled:            false,
-		WindowSeconds:      300,
-		MinSamples:         20,
-		ErrorRatePercent:   30,
-		CooldownSeconds:    120,
-		MaxCooldownSeconds: 1800,
-		MinHealthyAccounts: 5,
+		Enabled:                false,
+		WindowSeconds:          300,
+		MinSamples:             20,
+		ErrorRatePercent:       30,
+		CooldownSeconds:        120,
+		MaxCooldownSeconds:     1800,
+		MinHealthyAccounts:     5,
+		ApplyToBusinessPremium: &applyToBusinessPremium,
 	}
 }
 
 // DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒；熔断 5次/60秒；退避封顶600秒）
 func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
+	applyToBusinessPremium := true
 	return &RateLimit429CooldownSettings{
-		Enabled:            true,
-		CooldownSeconds:    5,
-		WindowSeconds:      60,
-		TransientThreshold: 5,
-		MaxCooldownSeconds: 600,
+		Enabled:                true,
+		CooldownSeconds:        5,
+		WindowSeconds:          60,
+		TransientThreshold:     5,
+		MaxCooldownSeconds:     600,
+		ApplyToBusinessPremium: &applyToBusinessPremium,
 	}
 }
 

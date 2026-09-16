@@ -1036,6 +1036,9 @@ export default {
         windowSecondsHint: '瞬时 429 熔断计数的滑动窗口时长（1-600 秒）',
         maxCooldownSeconds: '退避封顶（秒）',
         maxCooldownSecondsHint: '反复熔断时回避时长按倍数递增的上限（秒）；≤ 回避时长表示不启用指数退避',
+        applyToBusinessPremium: '对 Business Premium 账号生效',
+        applyToBusinessPremiumHint:
+          '关闭后，ChatGPT Business Premium 账号收到无重置时间的 429 时不做默认回避、也不参与熔断计数；上游给出明确 reset 时间的 429 仍照常生效',
         saved: '429 默认回避设置保存成功',
         saveFailed: '保存 429 默认回避设置失败'
       },
@@ -1059,6 +1062,9 @@ export default {
         minHealthyAccounts: '保底可调度账号数',
         minHealthyAccountsHint:
           '同平台可调度账号数低于此值时停止熔断，避免全网过载时把整个账号池一起摘掉（0 = 关闭保底）',
+        applyToBusinessPremium: '对 Business Premium 账号生效',
+        applyToBusinessPremiumHint:
+          '关闭后，ChatGPT Business Premium 账号不参与 5xx 错误率熔断，也不计入窗口样本',
         saved: '5xx 错误率熔断设置保存成功',
         saveFailed: '保存 5xx 错误率熔断设置失败'
       },

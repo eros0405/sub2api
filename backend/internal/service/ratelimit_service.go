@@ -1309,6 +1309,11 @@ func (s *RateLimitService) get429FallbackCooldown(ctx context.Context, account *
 			if !settings.Enabled {
 				return 0, false
 			}
+			// Business Premium 豁免：只跳过"无法解析上游重置时间时的默认回避"，
+			// 上游明确给出 reset 时间的路径不走这里，仍然照常生效。
+			if !settings.AppliesToBusinessPremium() && account.IsOpenAIBusinessPremium() {
+				return 0, false
+			}
 			seconds := clampRateLimit429CooldownSeconds(settings.CooldownSeconds)
 			return time.Duration(seconds) * time.Second, true
 		}

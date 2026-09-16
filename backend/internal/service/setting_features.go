@@ -803,8 +803,14 @@ func normalizeUpstream5xxBreakerFields(settings *Upstream5xxBreakerSettings) {
 	if settings.WindowSeconds == 0 && settings.MinSamples == 0 &&
 		settings.ErrorRatePercent == 0 && settings.CooldownSeconds == 0 {
 		enabled := settings.Enabled
+		// ApplyToBusinessPremium 与阈值字段无关，回填默认值时必须原样保留，
+		// 否则"关闭熔断 + 排除 Business Premium"这类配置会在读取时被覆盖。
+		applyToBusinessPremium := settings.ApplyToBusinessPremium
 		*settings = *def
 		settings.Enabled = enabled
+		if applyToBusinessPremium != nil {
+			settings.ApplyToBusinessPremium = applyToBusinessPremium
+		}
 		return
 	}
 	if settings.WindowSeconds < 30 {

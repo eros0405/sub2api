@@ -1042,6 +1042,9 @@ export default {
         windowSecondsHint: 'Sliding window for counting transient 429s toward the breaker (1-600 seconds)',
         maxCooldownSeconds: 'Backoff Cap (seconds)',
         maxCooldownSecondsHint: 'Upper bound for exponentially increasing cooldown on repeated trips (seconds); ≤ cooldown duration disables exponential backoff',
+        applyToBusinessPremium: 'Apply to Business Premium accounts',
+        applyToBusinessPremiumHint:
+          'When off, ChatGPT Business Premium accounts get no default cooldown for a 429 without a reset time and are excluded from breaker counting; 429s carrying an explicit upstream reset time still apply',
         saved: '429 default cooldown settings saved',
         saveFailed: 'Failed to save 429 default cooldown settings'
       },
@@ -1068,6 +1071,9 @@ export default {
         minHealthyAccounts: 'Minimum Healthy Accounts',
         minHealthyAccountsHint:
           'Stop tripping when schedulable accounts on the same platform fall below this count, so a broad upstream outage cannot drain the whole pool (0 = disable the floor)',
+        applyToBusinessPremium: 'Apply to Business Premium accounts',
+        applyToBusinessPremiumHint:
+          'When off, ChatGPT Business Premium accounts are excluded from the 5xx error-rate breaker and from window sampling',
         saved: '5xx error-rate breaker settings saved',
         saveFailed: 'Failed to save 5xx error-rate breaker settings'
       },

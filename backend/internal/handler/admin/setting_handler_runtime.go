@@ -112,13 +112,14 @@ func (h *SettingHandler) GetUpstream5xxBreakerSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.Upstream5xxBreakerSettings{
-		Enabled:            settings.Enabled,
-		WindowSeconds:      settings.WindowSeconds,
-		MinSamples:         settings.MinSamples,
-		ErrorRatePercent:   settings.ErrorRatePercent,
-		CooldownSeconds:    settings.CooldownSeconds,
-		MaxCooldownSeconds: settings.MaxCooldownSeconds,
-		MinHealthyAccounts: settings.MinHealthyAccounts,
+		Enabled:                settings.Enabled,
+		WindowSeconds:          settings.WindowSeconds,
+		MinSamples:             settings.MinSamples,
+		ErrorRatePercent:       settings.ErrorRatePercent,
+		CooldownSeconds:        settings.CooldownSeconds,
+		MaxCooldownSeconds:     settings.MaxCooldownSeconds,
+		MinHealthyAccounts:     settings.MinHealthyAccounts,
+		ApplyToBusinessPremium: settings.AppliesToBusinessPremium(),
 	})
 }
 
@@ -131,6 +132,8 @@ type UpdateUpstream5xxBreakerSettingsRequest struct {
 	CooldownSeconds    int  `json:"cooldown_seconds"`
 	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
 	MinHealthyAccounts int  `json:"min_healthy_accounts"`
+	// ApplyToBusinessPremium 省略时保持"生效"，避免老客户端 PUT 时把开关静默关掉。
+	ApplyToBusinessPremium *bool `json:"apply_to_business_premium"`
 }
 
 // UpdateUpstream5xxBreakerSettings 更新上游5xx错误率熔断配置
@@ -142,14 +145,19 @@ func (h *SettingHandler) UpdateUpstream5xxBreakerSettings(c *gin.Context) {
 		return
 	}
 
+	applyToBusinessPremium := true
+	if req.ApplyToBusinessPremium != nil {
+		applyToBusinessPremium = *req.ApplyToBusinessPremium
+	}
 	settings := &service.Upstream5xxBreakerSettings{
-		Enabled:            req.Enabled,
-		WindowSeconds:      req.WindowSeconds,
-		MinSamples:         req.MinSamples,
-		ErrorRatePercent:   req.ErrorRatePercent,
-		CooldownSeconds:    req.CooldownSeconds,
-		MaxCooldownSeconds: req.MaxCooldownSeconds,
-		MinHealthyAccounts: req.MinHealthyAccounts,
+		Enabled:                req.Enabled,
+		WindowSeconds:          req.WindowSeconds,
+		MinSamples:             req.MinSamples,
+		ErrorRatePercent:       req.ErrorRatePercent,
+		CooldownSeconds:        req.CooldownSeconds,
+		MaxCooldownSeconds:     req.MaxCooldownSeconds,
+		MinHealthyAccounts:     req.MinHealthyAccounts,
+		ApplyToBusinessPremium: &applyToBusinessPremium,
 	}
 
 	if err := h.settingService.SetUpstream5xxBreakerSettings(c.Request.Context(), settings); err != nil {
@@ -164,13 +172,14 @@ func (h *SettingHandler) UpdateUpstream5xxBreakerSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.Upstream5xxBreakerSettings{
-		Enabled:            updatedSettings.Enabled,
-		WindowSeconds:      updatedSettings.WindowSeconds,
-		MinSamples:         updatedSettings.MinSamples,
-		ErrorRatePercent:   updatedSettings.ErrorRatePercent,
-		CooldownSeconds:    updatedSettings.CooldownSeconds,
-		MaxCooldownSeconds: updatedSettings.MaxCooldownSeconds,
-		MinHealthyAccounts: updatedSettings.MinHealthyAccounts,
+		Enabled:                updatedSettings.Enabled,
+		WindowSeconds:          updatedSettings.WindowSeconds,
+		MinSamples:             updatedSettings.MinSamples,
+		ErrorRatePercent:       updatedSettings.ErrorRatePercent,
+		CooldownSeconds:        updatedSettings.CooldownSeconds,
+		MaxCooldownSeconds:     updatedSettings.MaxCooldownSeconds,
+		MinHealthyAccounts:     updatedSettings.MinHealthyAccounts,
+		ApplyToBusinessPremium: updatedSettings.AppliesToBusinessPremium(),
 	})
 }
 
@@ -184,11 +193,12 @@ func (h *SettingHandler) GetRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:            settings.Enabled,
-		CooldownSeconds:    settings.CooldownSeconds,
-		WindowSeconds:      settings.WindowSeconds,
-		TransientThreshold: settings.TransientThreshold,
-		MaxCooldownSeconds: settings.MaxCooldownSeconds,
+		Enabled:                settings.Enabled,
+		CooldownSeconds:        settings.CooldownSeconds,
+		WindowSeconds:          settings.WindowSeconds,
+		TransientThreshold:     settings.TransientThreshold,
+		MaxCooldownSeconds:     settings.MaxCooldownSeconds,
+		ApplyToBusinessPremium: settings.AppliesToBusinessPremium(),
 	})
 }
 
@@ -199,6 +209,8 @@ type UpdateRateLimit429CooldownSettingsRequest struct {
 	WindowSeconds      int  `json:"window_seconds"`
 	TransientThreshold int  `json:"transient_threshold"`
 	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
+	// ApplyToBusinessPremium 省略时保持"生效"，避免老客户端 PUT 时把开关静默关掉。
+	ApplyToBusinessPremium *bool `json:"apply_to_business_premium"`
 }
 
 // UpdateRateLimit429CooldownSettings 更新429默认回避配置
@@ -210,12 +222,17 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 		return
 	}
 
+	applyToBusinessPremium := true
+	if req.ApplyToBusinessPremium != nil {
+		applyToBusinessPremium = *req.ApplyToBusinessPremium
+	}
 	settings := &service.RateLimit429CooldownSettings{
-		Enabled:            req.Enabled,
-		CooldownSeconds:    req.CooldownSeconds,
-		WindowSeconds:      req.WindowSeconds,
-		TransientThreshold: req.TransientThreshold,
-		MaxCooldownSeconds: req.MaxCooldownSeconds,
+		Enabled:                req.Enabled,
+		CooldownSeconds:        req.CooldownSeconds,
+		WindowSeconds:          req.WindowSeconds,
+		TransientThreshold:     req.TransientThreshold,
+		MaxCooldownSeconds:     req.MaxCooldownSeconds,
+		ApplyToBusinessPremium: &applyToBusinessPremium,
 	}
 
 	if err := h.settingService.SetRateLimit429CooldownSettings(c.Request.Context(), settings); err != nil {
@@ -230,11 +247,12 @@ func (h *SettingHandler) UpdateRateLimit429CooldownSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.RateLimit429CooldownSettings{
-		Enabled:            updatedSettings.Enabled,
-		CooldownSeconds:    updatedSettings.CooldownSeconds,
-		WindowSeconds:      updatedSettings.WindowSeconds,
-		TransientThreshold: updatedSettings.TransientThreshold,
-		MaxCooldownSeconds: updatedSettings.MaxCooldownSeconds,
+		Enabled:                updatedSettings.Enabled,
+		CooldownSeconds:        updatedSettings.CooldownSeconds,
+		WindowSeconds:          updatedSettings.WindowSeconds,
+		TransientThreshold:     updatedSettings.TransientThreshold,
+		MaxCooldownSeconds:     updatedSettings.MaxCooldownSeconds,
+		ApplyToBusinessPremium: updatedSettings.AppliesToBusinessPremium(),
 	})
 }
 

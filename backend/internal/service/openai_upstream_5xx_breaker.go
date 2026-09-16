@@ -219,6 +219,12 @@ func (s *OpenAIGatewayService) maybeTripUpstream5xxBreaker(ctx context.Context, 
 	if account.IsShadow() {
 		return false
 	}
+	// Business Premium 可由管理端单独豁免：该档位并发额度高、上游偶发 5xx 更常见，
+	// 摘掉它的代价通常大于继续试。豁免时连窗口计数都不记，避免开关切回时
+	// 用一段陈旧样本立刻熔断。
+	if !settings.AppliesToBusinessPremium() && account.IsOpenAIBusinessPremium() {
+		return false
+	}
 
 	now := time.Now()
 	window := time.Duration(settings.WindowSeconds) * time.Second
@@ -282,6 +288,10 @@ func (s *OpenAIGatewayService) observeUpstream5xxSuccess(ctx context.Context, ac
 		return
 	}
 	if account.IsShadow() {
+		return
+	}
+	// 与 maybeTripUpstream5xxBreaker 对称：豁免账号不参与窗口统计。
+	if !settings.AppliesToBusinessPremium() && account.IsOpenAIBusinessPremium() {
 		return
 	}
 

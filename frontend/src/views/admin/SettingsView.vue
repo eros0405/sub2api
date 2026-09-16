@@ -449,6 +449,33 @@
                       }}
                     </p>
                   </div>
+
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t(
+                            "admin.settings.rateLimit429Cooldown.applyToBusinessPremium",
+                          )
+                        }}</label
+                      >
+                      <p
+                        class="mt-1.5 text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        {{
+                          t(
+                            "admin.settings.rateLimit429Cooldown.applyToBusinessPremiumHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <Toggle
+                      v-model="
+                        rateLimit429CooldownForm.apply_to_business_premium
+                      "
+                    />
+                  </div>
                 </div>
 
                 <div
@@ -669,6 +696,31 @@
                         )
                       }}
                     </p>
+                  </div>
+
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t(
+                            "admin.settings.upstream5xxBreaker.applyToBusinessPremium",
+                          )
+                        }}</label
+                      >
+                      <p
+                        class="mt-1.5 text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        {{
+                          t(
+                            "admin.settings.upstream5xxBreaker.applyToBusinessPremiumHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <Toggle
+                      v-model="upstream5xxBreakerForm.apply_to_business_premium"
+                    />
                   </div>
                 </div>
 
@@ -9475,6 +9527,7 @@ const rateLimit429CooldownForm = reactive({
   window_seconds: 60,
   transient_threshold: 5,
   max_cooldown_seconds: 600,
+  apply_to_business_premium: true,
 });
 
 // Upstream 5xx Error-Rate Breaker 状态
@@ -9488,6 +9541,7 @@ const upstream5xxBreakerForm = reactive({
   cooldown_seconds: 120,
   max_cooldown_seconds: 1800,
   min_healthy_accounts: 5,
+  apply_to_business_premium: true,
 });
 
 // Panel API Rate Limit 状态
@@ -12474,6 +12528,8 @@ async function saveRateLimit429CooldownSettings() {
       window_seconds: rateLimit429CooldownForm.window_seconds,
       transient_threshold: rateLimit429CooldownForm.transient_threshold,
       max_cooldown_seconds: rateLimit429CooldownForm.max_cooldown_seconds,
+      apply_to_business_premium:
+        rateLimit429CooldownForm.apply_to_business_premium,
     });
     Object.assign(rateLimit429CooldownForm, updated);
     appStore.showSuccess(t("admin.settings.rateLimit429Cooldown.saved"));
@@ -12513,6 +12569,8 @@ async function saveUpstream5xxBreakerSettings() {
       cooldown_seconds: upstream5xxBreakerForm.cooldown_seconds,
       max_cooldown_seconds: upstream5xxBreakerForm.max_cooldown_seconds,
       min_healthy_accounts: upstream5xxBreakerForm.min_healthy_accounts,
+      apply_to_business_premium:
+        upstream5xxBreakerForm.apply_to_business_premium,
     });
     Object.assign(upstream5xxBreakerForm, updated);
     appStore.showSuccess(t("admin.settings.upstream5xxBreaker.saved"));

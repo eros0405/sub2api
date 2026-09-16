@@ -458,22 +458,24 @@ type OverloadCooldownSettings struct {
 
 // RateLimit429CooldownSettings 429默认回避配置 DTO
 type RateLimit429CooldownSettings struct {
-	Enabled            bool `json:"enabled"`
-	CooldownSeconds    int  `json:"cooldown_seconds"`
-	WindowSeconds      int  `json:"window_seconds"`
-	TransientThreshold int  `json:"transient_threshold"`
-	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
+	Enabled                bool `json:"enabled"`
+	CooldownSeconds        int  `json:"cooldown_seconds"`
+	WindowSeconds          int  `json:"window_seconds"`
+	TransientThreshold     int  `json:"transient_threshold"`
+	MaxCooldownSeconds     int  `json:"max_cooldown_seconds"`
+	ApplyToBusinessPremium bool `json:"apply_to_business_premium"`
 }
 
 // Upstream5xxBreakerSettings 上游5xx错误率熔断配置 DTO
 type Upstream5xxBreakerSettings struct {
-	Enabled            bool `json:"enabled"`
-	WindowSeconds      int  `json:"window_seconds"`
-	MinSamples         int  `json:"min_samples"`
-	ErrorRatePercent   int  `json:"error_rate_percent"`
-	CooldownSeconds    int  `json:"cooldown_seconds"`
-	MaxCooldownSeconds int  `json:"max_cooldown_seconds"`
-	MinHealthyAccounts int  `json:"min_healthy_accounts"`
+	Enabled                bool `json:"enabled"`
+	WindowSeconds          int  `json:"window_seconds"`
+	MinSamples             int  `json:"min_samples"`
+	ErrorRatePercent       int  `json:"error_rate_percent"`
+	CooldownSeconds        int  `json:"cooldown_seconds"`
+	MaxCooldownSeconds     int  `json:"max_cooldown_seconds"`
+	MinHealthyAccounts     int  `json:"min_healthy_accounts"`
+	ApplyToBusinessPremium bool `json:"apply_to_business_premium"`
 }
 
 type OpenAIImagesOAuthUnavailableCooldownSettings struct {

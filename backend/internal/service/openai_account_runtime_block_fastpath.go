@@ -248,6 +248,11 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context
 	if resetAt != nil && resetAt.After(now) {
 		// 上游明确给出重置时间，直接采信，不参与本地退避。
 		cooldownUntil = *resetAt
+	} else if !s.rateLimit429AppliesTo(ctx, account) {
+		// Business Premium 豁免且上游没给重置时间：不做默认回避，
+		// 让账号留在池里由下一次请求自然试探。
+		slog.Debug("openai_oauth_429_default_cooldown_skipped_business_premium", "account_id", account.ID)
+		return
 	} else if s.rateLimitService != nil {
 		// 优先采信持久化 fallback 冷却（PR #6320）；无持久化冷却时走本地指数退避回避（熔断补丁）。
 		if cooldown, ok := s.rateLimitService.get429FallbackCooldown(ctx, account); ok && cooldown > 0 {
@@ -292,6 +297,10 @@ func (s *OpenAIGatewayService) recordAccountTransient429(accountID int64, window
 func (s *OpenAIGatewayService) shouldTrip429Breaker(ctx context.Context, account *Account) bool {
 	settings := s.rateLimit429Settings(ctx)
 	if settings == nil || !settings.Enabled || settings.TransientThreshold <= 0 {
+		return false
+	}
+	// Business Premium 豁免：不提前熔断，保留同账号重试窗口。
+	if !settings.AppliesToBusinessPremium() && account.IsOpenAIBusinessPremium() {
 		return false
 	}
 	window := time.Duration(settings.WindowSeconds) * time.Second
@@ -354,6 +363,20 @@ func (s *OpenAIGatewayService) rateLimit429Settings(ctx context.Context) *RateLi
 		return nil
 	}
 	return settings
+}
+
+// rateLimit429AppliesTo 判断 429 默认回避是否作用于该账号。
+// 配置读不到时返回 true（保持原有默认回避行为），只有显式关闭
+// ApplyToBusinessPremium 且账号确为 Business Premium 时才豁免。
+func (s *OpenAIGatewayService) rateLimit429AppliesTo(ctx context.Context, account *Account) bool {
+	settings := s.rateLimit429Settings(ctx)
+	if settings == nil {
+		return true
+	}
+	if settings.AppliesToBusinessPremium() {
+		return true
+	}
+	return !account.IsOpenAIBusinessPremium()
 }
 
 // reset429TransientState 在账号成功恢复后清除滑动窗口与退避计数，使冷却回到初始档位。
