@@ -501,6 +501,7 @@ const baseSettingsResponse = {
   payment_visible_method_wxpay_source: "invalid-source",
   payment_visible_method_alipay_enabled: true,
   payment_visible_method_wxpay_enabled: true,
+  sticky_session_overflow_slots: 0,
   openai_low_upstream_rate_priority_enabled: false,
   openai_oauth_scheduling_rate_multiplier: 1,
   openai_advanced_scheduler_enabled: false,
@@ -1983,5 +1984,71 @@ describe("admin SettingsView platform quota matrix", () => {
     const quotas = payload["default_platform_quotas"] as Record<string, Record<string, unknown>>;
     // 不管输入是什么，提交值应为 null（而非 "" 或 NaN）
     expect(quotas["anthropic"]?.["daily"]).toBe(null);
+  });
+});
+
+describe("admin SettingsView sticky session overflow slots", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSettings.mockResolvedValue(baseSettingsResponse);
+    updateSettings.mockResolvedValue({});
+  });
+
+  function findOverflowInput(wrapper: ReturnType<typeof mountView>) {
+    const input = wrapper.find('[data-testid="sticky-session-overflow-slots"]');
+    expect(input.exists()).toBe(true);
+    return input;
+  }
+
+  it("loads the configured value and submits it unchanged", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      sticky_session_overflow_slots: 3,
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    expect((findOverflowInput(wrapper).element as HTMLInputElement).value).toBe("3");
+
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(payload["sticky_session_overflow_slots"]).toBe(3);
+  });
+
+  it("清空输入框时提交 0 而非空字符串（后端 *int 会拒成 400）", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    await findOverflowInput(wrapper).setValue("");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    const payload = updateSettings.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(payload["sticky_session_overflow_slots"]).toBe(0);
+  });
+
+  it("越界输入在提交前夹紧到 0-5", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    await findOverflowInput(wrapper).setValue("42");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    let payload = updateSettings.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(payload["sticky_session_overflow_slots"]).toBe(5);
+
+    await findOverflowInput(wrapper).setValue("-2");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    payload = updateSettings.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(payload["sticky_session_overflow_slots"]).toBe(0);
   });
 });

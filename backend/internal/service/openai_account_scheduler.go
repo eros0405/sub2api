@@ -586,6 +586,29 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		}), false, nil
 	}
 
+	// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+	// 必须放在下面的 sticky_escape(concurrency_full) 之前——escape 会直接换号，
+	// 一旦先跑就再没有机会用溢出把请求留在原账号上。
+	if overflow := stickyOverflowConcurrency(account.Concurrency, s.service.stickySessionOverflowSlots(ctx)); overflow > 0 {
+		if overflowResult, overflowErr := s.service.tryAcquireAccountSlot(ctx, accountID, overflow); overflowErr == nil && overflowResult != nil && overflowResult.Acquired {
+			if !req.PreserveStickyBinding {
+				_ = s.service.refreshStickySessionTTL(ctx, req.GroupID, sessionHash, s.service.openAIWSSessionStickyTTL())
+			}
+			slog.Info("sticky.overflow_slot_acquired",
+				"account_id", accountID,
+				"session", shortSessionHash(sessionHash),
+				"base_concurrency", account.Concurrency,
+				"overflow_concurrency", overflow,
+				"path", "openai_scheduler_session_hash",
+			)
+			return attachSelectionProfitGate(ctx, &AccountSelectionResult{
+				Account:     account,
+				Acquired:    true,
+				ReleaseFunc: overflowResult.ReleaseFunc,
+			}), false, nil
+		}
+	}
+
 	cfg := s.service.schedulingConfig()
 	// WaitPlan.MaxConcurrency 使用 Concurrency（非 EffectiveLoadFactor），因为 WaitPlan 控制的是 Redis 实际并发槽位等待。
 	if s.service.concurrencyService != nil {
@@ -1333,6 +1356,26 @@ func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 				Acquired:    true,
 				ReleaseFunc: result.ReleaseFunc,
 			}), nil
+		}
+		// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+		if overflow := stickyOverflowConcurrency(account.Concurrency, s.service.stickySessionOverflowSlots(ctx)); overflow > 0 {
+			if overflowResult, overflowErr := s.service.tryAcquireAccountSlot(ctx, account.ID, overflow); overflowErr == nil && overflowResult != nil && overflowResult.Acquired {
+				if req.SessionHash != "" && !req.PreserveStickyBinding {
+					_ = s.service.bindOpenAIStickySessionDuringSelection(ctx, req.GroupID, req.SessionHash, account.ID)
+				}
+				slog.Info("sticky.overflow_slot_acquired",
+					"account_id", account.ID,
+					"session", shortSessionHash(req.SessionHash),
+					"base_concurrency", account.Concurrency,
+					"overflow_concurrency", overflow,
+					"path", "openai_scheduler_weighted_fallback",
+				)
+				return attachSelectionProfitGate(ctx, &AccountSelectionResult{
+					Account:     account,
+					Acquired:    true,
+					ReleaseFunc: overflowResult.ReleaseFunc,
+				}), nil
+			}
 		}
 		if s.service.concurrencyService != nil {
 			cfg := s.service.schedulingConfig()

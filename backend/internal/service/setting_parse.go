@@ -264,6 +264,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyOpenAIAdvancedSchedulerWeightUpstreamCost:          "",
 		SettingKeyOpenAIAdvancedSchedulerWeightPreviousResponse:      "",
 		SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky:         "",
+		SettingKeyStickySessionOverflowSlots:                         "0",
 
 		SettingKeyAllowUserViewErrorRequests: "false",
 	}
@@ -930,6 +931,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.OpenAIAdvancedSchedulerWeightUpstreamCost = strings.TrimSpace(settings[SettingKeyOpenAIAdvancedSchedulerWeightUpstreamCost])
 	result.OpenAIAdvancedSchedulerWeightPreviousResponse = strings.TrimSpace(settings[SettingKeyOpenAIAdvancedSchedulerWeightPreviousResponse])
 	result.OpenAIAdvancedSchedulerWeightSessionSticky = strings.TrimSpace(settings[SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky])
+	result.StickySessionOverflowSlots = ParseStickySessionOverflowSlots(settings[SettingKeyStickySessionOverflowSlots])
 	result.OpenAIAdvancedSchedulerEffectiveLBTopK = s.openAIAdvancedSchedulerEffectiveLBTopK()
 	effectiveWeights := s.openAIAdvancedSchedulerEffectiveWeights()
 	result.OpenAIAdvancedSchedulerEffectiveWeightPriority = formatOpenAIAdvancedSchedulerFloat(effectiveWeights.Priority)

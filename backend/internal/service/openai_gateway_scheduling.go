@@ -1142,6 +1142,19 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			return s.newAcquiredSelectionResult(ctx, account, result.ReleaseFunc)
 		}
 		if stickyAccountID > 0 && stickyAccountID == account.ID && s.concurrencyService != nil {
+			// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+			if overflow := stickyOverflowConcurrency(account.Concurrency, s.stickySessionOverflowSlots(ctx)); overflow > 0 {
+				if overflowResult, overflowErr := s.tryAcquireAccountSlot(ctx, account.ID, overflow); overflowErr == nil && overflowResult != nil && overflowResult.Acquired {
+					slog.Info("sticky.overflow_slot_acquired",
+						"account_id", account.ID,
+						"session", shortSessionHash(sessionHash),
+						"base_concurrency", account.Concurrency,
+						"overflow_concurrency", overflow,
+						"path", "openai_no_load_batch",
+					)
+					return s.newAcquiredSelectionResult(ctx, account, overflowResult.ReleaseFunc)
+				}
+			}
 			waitingCount, _ := s.concurrencyService.GetAccountWaitingCount(ctx, account.ID)
 			if waitingCount < cfg.StickySessionMaxWaiting {
 				return s.newSelectionResult(ctx, account, false, nil, &AccountWaitPlan{
@@ -1212,6 +1225,25 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 							}
 							_ = s.refreshStickySessionTTL(ctx, groupID, sessionHash, openaiStickySessionTTL)
 							return selection, nil
+						}
+
+						// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+						if overflow := stickyOverflowConcurrency(account.Concurrency, s.stickySessionOverflowSlots(ctx)); overflow > 0 {
+							if overflowResult, overflowErr := s.tryAcquireAccountSlot(ctx, accountID, overflow); overflowErr == nil && overflowResult != nil && overflowResult.Acquired {
+								selection, selectErr := s.newAcquiredSelectionResult(ctx, account, overflowResult.ReleaseFunc)
+								if selectErr != nil {
+									return nil, selectErr
+								}
+								slog.Info("sticky.overflow_slot_acquired",
+									"account_id", accountID,
+									"session", shortSessionHash(sessionHash),
+									"base_concurrency", account.Concurrency,
+									"overflow_concurrency", overflow,
+									"path", "openai_layer1",
+								)
+								_ = s.refreshStickySessionTTL(ctx, groupID, sessionHash, openaiStickySessionTTL)
+								return selection, nil
+							}
 						}
 
 						waitingCount, _ := s.concurrencyService.GetAccountWaitingCount(ctx, accountID)

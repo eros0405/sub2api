@@ -192,6 +192,19 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 
 			if stickyAccountID > 0 && stickyAccountID == account.ID && s.concurrencyService != nil {
+				// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+				if overflow := stickyOverflowConcurrency(account.Concurrency, s.stickySessionOverflowSlots(ctx)); overflow > 0 {
+					if overflowResult, overflowErr := s.tryAcquireAccountSlot(ctx, account.ID, overflow); overflowErr == nil && overflowResult.Acquired {
+						slog.Info("sticky.overflow_slot_acquired",
+							"account_id", account.ID,
+							"session", shortSessionHash(sessionHash),
+							"base_concurrency", account.Concurrency,
+							"overflow_concurrency", overflow,
+							"path", "no_load_batch",
+						)
+						return s.newSelectionResult(ctx, account, true, overflowResult.ReleaseFunc, nil)
+					}
+				}
 				waitingCount, _ := s.concurrencyService.GetAccountWaitingCount(ctx, account.ID)
 				if waitingCount < cfg.StickySessionMaxWaiting {
 					return s.newSelectionResult(ctx, account, false, nil, &AccountWaitPlan{
@@ -383,6 +396,28 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 										logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), stickyAccountID)
 									}
 									return s.newSelectionResult(ctx, stickyAccount, true, result.ReleaseFunc, nil)
+								}
+							}
+
+							// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+							// 会话数量限制仍要过，溢出只放宽并发槽位，不放宽会话配额。
+							if stickyCacheMissReason == "" {
+								if overflow := stickyOverflowConcurrency(stickyAccount.Concurrency, s.stickySessionOverflowSlots(ctx)); overflow > 0 {
+									if overflowResult, overflowErr := s.tryAcquireAccountSlot(ctx, stickyAccountID, overflow); overflowErr == nil && overflowResult.Acquired {
+										if !s.checkAndRegisterSession(ctx, stickyAccount, sessionHash) {
+											overflowResult.ReleaseFunc()
+											stickyCacheMissReason = "session_limit"
+										} else {
+											slog.Info("sticky.overflow_slot_acquired",
+												"account_id", stickyAccountID,
+												"session", shortSessionHash(sessionHash),
+												"base_concurrency", stickyAccount.Concurrency,
+												"overflow_concurrency", overflow,
+												"path", "layer1_5_routing",
+											)
+											return s.newSelectionResult(ctx, stickyAccount, true, overflowResult.ReleaseFunc, nil)
+										}
+									}
 								}
 							}
 
@@ -592,6 +627,27 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 							"account_id", accountID,
 							"session", shortSessionHash(sessionHash),
 						)
+					}
+
+					// 粘性溢出：槽位满时先在放宽上限下再抢一次，抢到就立刻转发，不排队。
+					if overflow := stickyOverflowConcurrency(account.Concurrency, s.stickySessionOverflowSlots(ctx)); overflow > 0 {
+						if overflowResult, overflowErr := s.tryAcquireAccountSlot(ctx, accountID, overflow); overflowErr == nil && overflowResult.Acquired {
+							if !s.checkAndRegisterSession(ctx, account, sessionHash) {
+								overflowResult.ReleaseFunc() // 会话配额不放宽，继续到 Layer 2
+							} else {
+								slog.Info("sticky.overflow_slot_acquired",
+									"account_id", accountID,
+									"session", shortSessionHash(sessionHash),
+									"base_concurrency", account.Concurrency,
+									"overflow_concurrency", overflow,
+									"path", "layer1_5_no_routing",
+								)
+								if s.cache != nil {
+									_ = s.cache.RefreshSessionTTL(ctx, derefGroupID(groupID), sessionHash, stickySessionTTL)
+								}
+								return s.newSelectionResult(ctx, account, true, overflowResult.ReleaseFunc, nil)
+							}
+						}
 					}
 
 					waitingCount, _ := s.concurrencyService.GetAccountWaitingCount(ctx, accountID)

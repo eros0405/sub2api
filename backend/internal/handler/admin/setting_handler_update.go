@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"reflect"
@@ -272,6 +273,10 @@ type UpdateSettingsRequest struct {
 	PaymentVisibleMethodAlipayEnabled *bool   `json:"payment_visible_method_alipay_enabled"`
 	PaymentVisibleMethodWxpayEnabled  *bool   `json:"payment_visible_method_wxpay_enabled"`
 
+	// 粘性会话并发溢出槽位（0=关闭，最大 5）。用 *int 而非 int：库里的老配置没有
+	// 该字段，普通 int 会让老客户端 PUT 时把管理员配好的值静默清零。
+	StickySessionOverflowSlots *int `json:"sticky_session_overflow_slots"`
+
 	// OpenAI account scheduling
 	OpenAILowUpstreamRatePriorityEnabled               *bool    `json:"openai_low_upstream_rate_priority_enabled"`
 	OpenAIOAuthSchedulingRateMultiplier                *float64 `json:"openai_oauth_scheduling_rate_multiplier"`
@@ -532,6 +537,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			response.BadRequest(c, "Passkey sign-in requires a valid WebAuthn RP ID and allowed HTTPS origins in the deployment configuration")
 			return
 		}
+	}
+	// 溢出槽位放宽的是保护上游的并发上限，必须有硬顶：越界直接报错而不是静默截断，
+	// 否则管理员填了 20 却只生效 5，页面上看不出差别。
+	if req.StickySessionOverflowSlots != nil &&
+		(*req.StickySessionOverflowSlots < 0 || *req.StickySessionOverflowSlots > service.StickySessionOverflowSlotsMax) {
+		response.BadRequest(c, fmt.Sprintf("sticky_session_overflow_slots must be between 0 and %d", service.StickySessionOverflowSlotsMax))
+		return
 	}
 	forwardedClientIPHeaders := append([]string(nil), previousSettings.ForwardedClientIPHeaders...)
 	if req.ForwardedClientIPHeaders != nil {
@@ -1815,6 +1827,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.OpenAIOAuthSchedulingRateMultiplier
 		}(),
+		StickySessionOverflowSlots: func() int {
+			if req.StickySessionOverflowSlots != nil {
+				return *req.StickySessionOverflowSlots
+			}
+			return previousSettings.StickySessionOverflowSlots
+		}(),
 		OpenAIAdvancedSchedulerEnabled: func() bool {
 			if req.OpenAIAdvancedSchedulerEnabled != nil {
 				return *req.OpenAIAdvancedSchedulerEnabled
@@ -2320,6 +2338,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PaymentVisibleMethodWxpaySource:                        updatedSettings.PaymentVisibleMethodWxpaySource,
 		PaymentVisibleMethodAlipayEnabled:                      updatedSettings.PaymentVisibleMethodAlipayEnabled,
 		PaymentVisibleMethodWxpayEnabled:                       updatedSettings.PaymentVisibleMethodWxpayEnabled,
+		StickySessionOverflowSlots:                             updatedSettings.StickySessionOverflowSlots,
 		OpenAILowUpstreamRatePriorityEnabled:                   updatedSettings.OpenAILowUpstreamRatePriorityEnabled,
 		OpenAIOAuthSchedulingRateMultiplier:                    updatedSettings.OpenAIOAuthSchedulingRateMultiplier,
 		OpenAIAdvancedSchedulerEnabled:                         updatedSettings.OpenAIAdvancedSchedulerEnabled,

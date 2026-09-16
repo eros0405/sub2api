@@ -5412,6 +5412,34 @@
                 <Toggle v-model="form.allow_ungrouped_key_scheduling" />
               </div>
 
+              <div
+                class="flex flex-col items-stretch gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 dark:border-dark-700"
+              >
+                <div>
+                  <label
+                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.scheduling.stickyOverflowSlotsTitle") }}
+                  </label>
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.scheduling.stickyOverflowSlotsDescription") }}
+                  </p>
+                  <p class="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                    {{ t("admin.settings.scheduling.stickyOverflowSlotsWarning") }}
+                  </p>
+                </div>
+                <input
+                  v-model.number="form.sticky_session_overflow_slots"
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="1"
+                  class="input w-full sm:w-28"
+                  data-testid="sticky-session-overflow-slots"
+                  placeholder="0"
+                />
+              </div>
+
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
                 <div class="mb-3">
                   <label class="font-medium text-gray-900 dark:text-white">
@@ -10066,6 +10094,7 @@ type SettingsForm = Omit<
   github_oauth_client_secret: string;
   google_oauth_client_secret: string;
   force_email_on_third_party_signup: boolean;
+  sticky_session_overflow_slots: number;
   openai_low_upstream_rate_priority_enabled: boolean;
   openai_oauth_scheduling_rate_multiplier: number;
   openai_advanced_scheduler_enabled: boolean;
@@ -10309,6 +10338,7 @@ const form = reactive<SettingsForm>({
   max_claude_code_version: "",
   // 分组隔离
   allow_ungrouped_key_scheduling: false,
+  sticky_session_overflow_slots: 0,
   openai_low_upstream_rate_priority_enabled: false,
   openai_oauth_scheduling_rate_multiplier: 1,
   openai_advanced_scheduler_enabled: false,
@@ -11996,6 +12026,12 @@ async function saveSettings() {
       payment_alipay_force_qrcode: form.payment_alipay_force_qrcode,
       payment_alipay_mobile_precreate_deep_link:
         form.payment_alipay_mobile_precreate_deep_link,
+      // 清空输入框时 v-model.number 产出 ""，直接提交会被后端 *int 字段拒成 400；
+      // 空值语义等同关闭，归零处理。同时夹紧到 0-5，避免越界值往返一次才报错。
+      sticky_session_overflow_slots: Math.min(
+        5,
+        Math.max(0, Math.trunc(Number(form.sticky_session_overflow_slots) || 0)),
+      ),
       openai_low_upstream_rate_priority_enabled:
         form.openai_low_upstream_rate_priority_enabled,
       openai_oauth_scheduling_rate_multiplier:

@@ -663,6 +663,11 @@ const (
 	SettingKeyOpenAIAdvancedSchedulerWeightPreviousResponse      = "openai_advanced_scheduler_weight_previous_response"
 	SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky         = "openai_advanced_scheduler_weight_session_sticky"
 
+	// SettingKeyStickySessionOverflowSlots 粘性会话可超出账号并发上限的槽位数（0=关闭，最大 5）。
+	// 命中粘性账号但账号槽位已满时，允许在 concurrency + N 的放宽上限下再抢一次槽位，
+	// 抢到则立刻转发、不进入粘性排队队列；抢不到才回落到原有排队/换号逻辑。
+	SettingKeyStickySessionOverflowSlots = "sticky_session_overflow_slots"
+
 	// SettingKeyBackendModeEnabled Backend 模式：禁用用户注册和自助服务，仅管理员可登录
 	SettingKeyBackendModeEnabled = "backend_mode_enabled"
 

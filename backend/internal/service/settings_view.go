@@ -295,6 +295,9 @@ type SystemSettings struct {
 	OpenAIAdvancedSchedulerEffectiveWeightPreviousResponse string
 	OpenAIAdvancedSchedulerEffectiveWeightSessionSticky    string
 
+	// 粘性会话并发溢出槽位（0=关闭，最大 StickySessionOverflowSlotsMax）
+	StickySessionOverflowSlots int
+
 	// 余额不足提醒
 	BalanceLowNotifyEnabled     bool
 	BalanceLowNotifyThreshold   float64

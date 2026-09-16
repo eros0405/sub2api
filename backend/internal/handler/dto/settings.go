@@ -235,6 +235,9 @@ type SystemSettings struct {
 	PaymentVisibleMethodAlipayEnabled bool   `json:"payment_visible_method_alipay_enabled"`
 	PaymentVisibleMethodWxpayEnabled  bool   `json:"payment_visible_method_wxpay_enabled"`
 
+	// 粘性会话并发溢出槽位（0=关闭，最大 5）
+	StickySessionOverflowSlots int `json:"sticky_session_overflow_slots"`
+
 	// OpenAI account scheduling
 	OpenAILowUpstreamRatePriorityEnabled                   bool    `json:"openai_low_upstream_rate_priority_enabled"`
 	OpenAIOAuthSchedulingRateMultiplier                    float64 `json:"openai_oauth_scheduling_rate_multiplier"`
