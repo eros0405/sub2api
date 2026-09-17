@@ -100,9 +100,22 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	if s != nil {
 		scheduleOllamaCloudUsageActivity(s.deferredService, account)
 	}
-	// Capacity shedding describes this request, not account health. Keep the
-	// account schedulable while the request-local retry budget handles recovery.
+	// Capacity shedding 的 503 文案("servers are overloaded")在两种场景下相同:
+	// 全站过载 / 账号被上游单独软风控。文案分不出来,但滑动窗口错误率能——
+	// 健康账号(低错误率)不受影响,被风控账号(高 503 率)进冷却。因此不再无条件
+	// 放过,而是喂给 5xx 熔断器窗口,由错误率阈值 + headroom 保底共同决定是否摘账号
+	// (全站过载时 headroom 兜底不摘空池)。仍返回 false 保持"请求级现象"原语义,
+	// 只额外记一次窗口样本;pool 模式由请求级重试预算兜底,跳过。
 	if account != nil && account.Platform == PlatformOpenAI && isOpenAIRequestScopedCapacityShed("", responseBody) {
+		if s != nil && !account.IsPoolMode() {
+			stateCtx, cancel := openAIAccountStateContext(ctx)
+			defer cancel()
+			model := ""
+			if len(canonicalModel) > 0 {
+				model = canonicalModel[0]
+			}
+			s.maybeTripUpstream5xxBreaker(stateCtx, account, statusCode, model)
+		}
 		return false
 	}
 	stateCtx, cancel := openAIAccountStateContext(ctx)

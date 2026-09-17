@@ -424,3 +424,53 @@ func TestShouldCooldownOpenAITransientUpstreamErrorCovers5xx(t *testing.T) {
 		require.False(t, shouldCooldownOpenAITransientUpstreamError(code, nil), "status %d", code)
 	}
 }
+
+// 回归：capacity-shed 的 "servers are overloaded" 503 过去在 handleOpenAIAccountUpstreamError
+// 入口被无条件早退放过（return false，连窗口都不记），导致账号被单独软风控时熔断永不触发。
+// 修复后：健康账号照跑不熔断，被软风控账号（高 503 率）累计窗口后进冷却。
+func TestCapacityShed503FeedsBreakerWindow(t *testing.T) {
+	body := []byte(`{"error":{"message":"Our servers are currently overloaded. Please try again later."}}`)
+	require.True(t, isOpenAIRequestScopedCapacityShed("", body), "sanity: body must be recognized as capacity shed")
+
+	settings := upstream5xxTestSettings()
+	settings.MinSamples = 10
+	settings.ErrorRatePercent = 40
+	repo := &upstream5xxAccountRepo{schedulableCount: 100}
+	svc := newUpstream5xxService(t, settings, repo)
+	account := upstream5xxTestAccount()
+	ctx := context.Background()
+
+	// 全 capacity-shed 503,经真实入口 handleOpenAIAccountUpstreamError。
+	// 入口对该文案返回 false（不硬禁用），但现在会喂窗口,累计过阈值后熔断落库。
+	tripped := false
+	for i := 0; i < 12; i++ {
+		if svc.handleOpenAIAccountUpstreamError(ctx, account, 503, nil, body) {
+			t.Fatalf("capacity shed must not hard-disable the account (return true)")
+		}
+		if repo.setCalls > 0 {
+			tripped = true
+		}
+	}
+	require.True(t, tripped, "被软风控账号的 capacity-shed 503 累计后必须触发熔断")
+	require.Contains(t, repo.lastReason, "upstream 5xx breaker:")
+}
+
+// capacity-shed 503 与成功交替时,健康账号(低错误率)不得被熔断。
+func TestCapacityShed503DoesNotTripHealthyAccount(t *testing.T) {
+	body := []byte(`{"error":{"message":"Our servers are currently overloaded. Please try again later."}}`)
+	settings := upstream5xxTestSettings()
+	settings.MinSamples = 20
+	settings.ErrorRatePercent = 30
+	repo := &upstream5xxAccountRepo{schedulableCount: 100}
+	svc := newUpstream5xxService(t, settings, repo)
+	account := upstream5xxTestAccount()
+	ctx := context.Background()
+
+	for i := 0; i < 300; i++ {
+		svc.observeUpstream5xxSuccess(ctx, account)
+	}
+	for i := 0; i < 9; i++ {
+		require.False(t, svc.handleOpenAIAccountUpstreamError(ctx, account, 503, nil, body))
+	}
+	require.Zero(t, repo.setCalls, "健康高流量账号偶发 capacity-shed 503 不得被熔断")
+}
