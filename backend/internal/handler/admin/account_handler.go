@@ -1627,15 +1627,18 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		return
 	}
 
-	// 回填管理员配置类子键（model_mapping 等）。前端重新授权只带回 token 字段，
-	// 而下游 MergePreservingSensitiveCreds 仅保留敏感键，配置类键会被静默丢弃
-	// （症状：重新授权后账号模型限制被清空）。与 Extra 的 key 级合并保护对等。
+	// 前端重新授权只带回 token 字段，而下游 MergePreservingSensitiveCreds 仅保留敏感键，
+	// 其余既有子键会被静默丢弃（症状：重新授权后账号模型限制被清空）。
+	// 与 Extra 的 key 级合并保护对等：incoming 显式提供的键以 incoming 为准，未提供的保留 existing。
+	// 紧随其后的 SanitizeStoredCredentials 会剥掉 sso/password 等非 OAuth 残留。
 	//
 	// 影子账号除外：其 Credentials 只允许 model_mapping / compact_model_mapping
-	// （isAllowedSparkShadowCredentialsUpdate），回填其他配置键会让守卫误报 400。
-	// 影子本就不持有 token、不走重新授权，这里保持原语义即可。
-	if !existing.IsCredentialShadow() {
+	// （isAllowedSparkShadowCredentialsUpdate），回填其他键会让守卫误报 400，
+	// 因此只回填管理员配置类白名单。影子本就不持有 token、不走重新授权。
+	if existing.IsCredentialShadow() {
 		req.Credentials = service.PreserveAdminConfigCreds(existing.Credentials, req.Credentials)
+	} else {
+		req.Credentials = service.MergeCredentials(existing.Credentials, req.Credentials)
 	}
 
 	// Drop SSO/password residue; re-auth must leave only OAuth tokens on disk.
