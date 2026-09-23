@@ -74,7 +74,7 @@ func TestFetchOpenAIAccountModelsAPIKeyPopulatesPickerFields(t *testing.T) {
 	require.Equal(t, "named-model", models[2].ID)
 }
 
-func TestFetchOpenAIAccountModelsAPIKeyAppliesAccountModelMapping(t *testing.T) {
+func TestFetchOpenAIAccountModelsAPIKeyIgnoresAccountModelMapping(t *testing.T) {
 	gateway := newCodexModelsAPIKeyTestService(&codexModelsHTTPUpstreamStub{do: func(_ *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
 		return ordinaryModelsUpstreamResponse(`{"data":[
 			{"id":"upstream-target","owned_by":"provider","created":123},
@@ -91,18 +91,9 @@ func TestFetchOpenAIAccountModelsAPIKeyAppliesAccountModelMapping(t *testing.T) 
 
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
-	require.Len(t, models, 2)
-	ids := []string{models[0].ID, models[1].ID}
-	require.ElementsMatch(t, []string{"configured-alias", "direct-model"}, ids)
-	require.NotContains(t, ids, "unconfigured-model")
-	alias := models[0]
-	if alias.ID != "configured-alias" {
-		alias = models[1]
-	}
-	require.Equal(t, "configured-alias", alias.ID)
-	require.Equal(t, "configured-alias", alias.DisplayName)
-	require.Equal(t, "provider", alias.OwnedBy)
-	require.EqualValues(t, 123, alias.Created)
+	require.Equal(t, []string{"upstream-target", "direct-model", "unconfigured-model"}, pickerModelIDs(models))
+	require.Equal(t, "provider", models[0].OwnedBy)
+	require.EqualValues(t, 123, models[0].Created)
 }
 
 func TestFetchOpenAIAccountModelsPreservesEmptyCatalog(t *testing.T) {
@@ -119,12 +110,8 @@ func TestFetchOpenAIAccountModelsOAuthLabelsLocalImageModelsLikeUpstream(t *test
 	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-5.6-sol"}]}`)
 	svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
 	account := newCodexModelsTestAccount()
-	// This case is about label sources, so it must configure the upstream slug it
-	// asserts on: the picker is scoped to the account mapping, and an unconfigured
-	// slug is intentionally absent (see the exclusion test below).
 	account.Credentials["model_mapping"] = map[string]any{
-		"gpt-5.6-sol":         "gpt-5.6-sol",
-		"gpt-image-2.5-flare": "gpt-image-2.5-flare",
+		"alias": "gpt-5.6-sol",
 	}
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
@@ -136,7 +123,7 @@ func TestFetchOpenAIAccountModelsOAuthLabelsLocalImageModelsLikeUpstream(t *test
 	require.Equal(t, "GPT Image 2.5 Flare", byID["gpt-image-2.5-flare"], "locally added models use the same naming rule")
 }
 
-func TestFetchOpenAIAccountModelsOAuthRespectsImageAllowlist(t *testing.T) {
+func TestFetchOpenAIAccountModelsOAuthShowsAllNativeImageModels(t *testing.T) {
 	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-6-astra"}]}`)
 	svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
 	account := newCodexModelsTestAccount()
@@ -148,7 +135,7 @@ func TestFetchOpenAIAccountModelsOAuthRespectsImageAllowlist(t *testing.T) {
 		ids = append(ids, model.ID)
 	}
 	require.Contains(t, ids, "gpt-image-2.5-flare")
-	require.NotContains(t, ids, "gpt-image-2.5-sunburst")
+	require.Contains(t, ids, "gpt-image-2.5-sunburst")
 }
 
 func pickerModelIDs(models []openai.Model) []string {
@@ -159,9 +146,7 @@ func pickerModelIDs(models []openai.Model) []string {
 	return ids
 }
 
-// The picker is scoped to the account mapping: an upstream slug the account does
-// not configure must not become a testable choice.
-func TestFetchOpenAIAccountModelsOAuthExcludesUnconfiguredTextModels(t *testing.T) {
+func TestFetchOpenAIAccountModelsOAuthIncludesUnconfiguredTextModels(t *testing.T) {
 	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-5.6-sol"},{"slug":"gpt-6-astra"}]}`)
 	svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
 	account := newCodexModelsTestAccount()
@@ -169,12 +154,10 @@ func TestFetchOpenAIAccountModelsOAuthExcludesUnconfiguredTextModels(t *testing.
 
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
-	require.Equal(t, []string{"gpt-5.6-sol"}, pickerModelIDs(models))
+	require.Equal(t, []string{"gpt-5.6-sol", "gpt-6-astra"}, pickerModelIDs(models)[:2])
 }
 
-// An alias may point at a local image model that Codex discovery never lists, so
-// the picker has to resolve the target before deciding to offer the public name.
-func TestFetchOpenAIAccountModelsOAuthLocalImageAlias(t *testing.T) {
+func TestFetchOpenAIAccountModelsOAuthDoesNotAddImageAliases(t *testing.T) {
 	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-6-astra"}]}`)
 	svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
 	account := newCodexModelsTestAccount()
@@ -182,32 +165,9 @@ func TestFetchOpenAIAccountModelsOAuthLocalImageAlias(t *testing.T) {
 
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
-	require.Equal(t, []string{"paint"}, pickerModelIDs(models))
-	require.Equal(t, "paint", models[0].DisplayName)
-}
-
-// Image-shaped public names must come from projection when their target is text,
-// whether or not the public name also appears in the local image catalog.
-func TestFetchOpenAIAccountModelsOAuthImageNamesMappedToText(t *testing.T) {
-	for _, publicID := range []string{"gpt-image-2.5-lookalike", "gpt-image-2.5-flare"} {
-		for _, target := range []string{"text-target-missing", "gpt-6-astra"} {
-			t.Run(publicID+"/"+target, func(t *testing.T) {
-				newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-6-astra","display_name":"Upstream Text Model"}]}`)
-				svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
-				account := newCodexModelsTestAccount()
-				account.Credentials["model_mapping"] = map[string]any{publicID: target}
-
-				models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
-				require.NoError(t, err)
-				if target == "text-target-missing" {
-					require.Empty(t, models, "a missing text target must not be synthesized as an image choice")
-					return
-				}
-				require.Equal(t, []string{publicID}, pickerModelIDs(models))
-				require.Equal(t, publicID, models[0].DisplayName, "a real text target uses the projected alias label")
-			})
-		}
-	}
+	require.Contains(t, pickerModelIDs(models), "gpt-6-astra")
+	require.Contains(t, pickerModelIDs(models), "gpt-image-2.5-flare")
+	require.NotContains(t, pickerModelIDs(models), "paint")
 }
 
 func TestFetchOpenAIAccountModelsOAuthPassthroughIgnoresMappingTargets(t *testing.T) {
@@ -229,8 +189,8 @@ func TestFetchOpenAIAccountModelsOAuthPassthroughIgnoresMappingTargets(t *testin
 			require.Contains(t, ids, "gpt-6-astra", "passthrough preserves the upstream catalog")
 			require.Contains(t, ids, "gpt-image-2.5-flare")
 			require.Contains(t, ids, "gpt-image-2.5-sunburst")
-			require.Contains(t, ids, "gpt-image-custom", "preserve existing native image choices in passthrough")
-			require.NotContains(t, ids, "paint", "passthrough must not revive a stale mapping alias")
+			require.NotContains(t, ids, "gpt-image-custom", "mapping aliases are not discovered models")
+			require.NotContains(t, ids, "paint", "mapping aliases are not discovered models")
 		})
 	}
 }
@@ -249,7 +209,7 @@ func TestFetchOpenAIAccountModelsAPIKeyPassthroughIgnoresMapping(t *testing.T) {
 	require.Equal(t, []string{"target", "other"}, pickerModelIDs(models))
 }
 
-func TestFetchOpenAIAccountModelsMappingChangesReuseRawCache(t *testing.T) {
+func TestFetchOpenAIAccountModelsMappingChangesKeepRawCatalog(t *testing.T) {
 	var calls atomic.Int32
 	gateway := newCodexModelsAPIKeyTestService(&codexModelsHTTPUpstreamStub{do: func(_ *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
 		calls.Add(1)
@@ -270,24 +230,19 @@ func TestFetchOpenAIAccountModelsMappingChangesReuseRawCache(t *testing.T) {
 	original := append([]byte(nil), before.Body...)
 	models, err := svc.FetchOpenAIAccountModels(ctx, account)
 	require.NoError(t, err)
-	require.ElementsMatch(t, []string{"gpt-a", "gpt-special"}, pickerModelIDs(models))
-	for _, model := range models {
-		switch model.ID {
-		case "gpt-a":
-			require.EqualValues(t, 123, model.Created)
-			require.Equal(t, "provider", model.OwnedBy)
-		case "gpt-special":
-			require.EqualValues(t, 456, model.Created, "exact mapping takes priority over the wildcard")
-			require.Equal(t, "other-provider", model.OwnedBy)
-		}
-	}
+	expected := []string{"target", "gpt-a", "gpt-special", "other"}
+	require.Equal(t, expected, pickerModelIDs(models))
+	require.EqualValues(t, 123, models[0].Created)
+	require.Equal(t, "provider", models[0].OwnedBy)
+	require.EqualValues(t, 456, models[3].Created)
+	require.Equal(t, "other-provider", models[3].OwnedBy)
 
 	account.Credentials["model_mapping"] = map[string]any{"second": "other"}
 	models, err = svc.FetchOpenAIAccountModels(ctx, account)
 	require.NoError(t, err)
-	require.Equal(t, []string{"second"}, pickerModelIDs(models), "mapping changes apply without refreshing discovery")
+	require.Equal(t, expected, pickerModelIDs(models), "mapping changes must not alter the test catalog")
 	after, err := gateway.FetchOpenAIModelsList(ctx, account)
 	require.NoError(t, err)
-	require.Equal(t, original, after.Body, "projection must not mutate the shared catalog")
-	require.EqualValues(t, 1, calls.Load(), "both mappings must reuse the same discovery cache")
+	require.Equal(t, original, after.Body, "picker fields must not mutate the shared catalog")
+	require.EqualValues(t, 1, calls.Load(), "mapping changes must reuse the same discovery cache")
 }

@@ -225,7 +225,5 @@ func TestCodexDirectImagesAccountTestAndWhitelist(t *testing.T) {
 	account.Credentials["model_mapping"] = map[string]any{"gpt-image-2.5-flare": "gpt-image-2.5-flare"}
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
-	for _, model := range models {
-		require.NotEqual(t, "gpt-image-2.5-sunburst", model.ID)
-	}
+	require.Contains(t, pickerModelIDs(models), "gpt-image-2.5-sunburst")
 }
