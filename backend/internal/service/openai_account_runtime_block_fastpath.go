@@ -99,6 +99,7 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	// Any non-2xx upstream HTTP response means the model request was actually sent.
 	if s != nil {
 		scheduleOllamaCloudUsageActivity(s.deferredService, account)
+		scheduleOpenCodeGoUsageActivity(s.deferredService, account)
 	}
 	// Capacity shedding 的 503 文案("servers are overloaded")在两种场景下相同:
 	// 全站过载 / 账号被上游单独软风控。文案分不出来,但滑动窗口错误率能——
