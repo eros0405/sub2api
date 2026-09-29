@@ -1070,6 +1070,7 @@ func TestAPIContracts(t *testing.T) {
 					"model_plaza_description": "",
 					"plugin_management_enabled": false,
 					"risk_control_enabled": false,
+					"cyber_policy_user_allowlist": "",
 					"cyber_session_block_enabled": false,
 					"cyber_session_block_ttl_seconds": 3600,
 					"affiliate_enabled": false,
@@ -1392,6 +1393,7 @@ func TestAPIContracts(t *testing.T) {
 					"model_plaza_description": "",
 					"plugin_management_enabled": false,
 					"risk_control_enabled": false,
+					"cyber_policy_user_allowlist": "",
 					"cyber_session_block_enabled": false,
 					"cyber_session_block_ttl_seconds": 3600,
 					"affiliate_enabled": false,
@@ -2048,6 +2050,10 @@ func (s *stubAccountRepo) ListSchedulableByGroupID(ctx context.Context, groupID 
 
 func (s *stubAccountRepo) ListSchedulableByPlatform(ctx context.Context, platform string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) CountSchedulableByPlatform(ctx context.Context, platform string) (int, error) {
+	return 0, errors.New("not implemented")
 }
 
 func (s *stubAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
@@ -2755,7 +2761,7 @@ func (r *stubUsageLogRepo) GetAPIKeyUsageTrend(ctx context.Context, startTime, e
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetUserUsageTrend(ctx context.Context, startTime, endTime time.Time, granularity string, limit int) ([]usagestats.UserUsageTrendPoint, error) {
+func (r *stubUsageLogRepo) GetUserUsageTrend(ctx context.Context, startTime, endTime time.Time, granularity string, limit int, metric string) ([]usagestats.UserUsageTrendPoint, error) {
 	return nil, errors.New("not implemented")
 }
 
