@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -57,7 +59,7 @@ func (h *RedeemHandler) Redeem(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.RedeemCodeFromService(result))
+	response.Success(c, dto.RedeemCodeFromService(result).Localized(c.GetHeader("Accept-Language")))
 }
 
 // GetHistory returns the user's redemption history (paginated)
@@ -69,15 +71,50 @@ func (h *RedeemHandler) GetHistory(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := response.ParsePagination(c)
-	params := pagination.PaginationParams{
-		Page:     page,
-		PageSize: pageSize,
+	// Keep the legacy array response for clients that request neither pagination nor a type filter.
+	query := c.Request.URL.Query()
+	if query.Has("page") || query.Has("page_size") || query.Has("type") {
+		page, pageSize := 1, 20
+		for name, target := range map[string]*int{"page": &page, "page_size": &pageSize} {
+			if raw, exists := c.GetQuery(name); exists {
+				value, err := strconv.Atoi(raw)
+				if err != nil || value < 1 {
+					response.BadRequest(c, "Invalid "+name)
+					return
+				}
+				*target = value
+			}
+		}
+		if pageSize > 100 {
+			pageSize = 100
+		}
+		if page-1 > int(^uint(0)>>1)/pageSize {
+			response.BadRequest(c, "Invalid page")
+			return
+		}
+		codes, result, err := h.redeemService.GetUserHistoryPaginated(
+			c.Request.Context(), subject.UserID, pagination.PaginationParams{Page: page, PageSize: pageSize}, c.Query("type"),
+		)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		out := make([]dto.RedeemCode, 0, len(codes))
+		for i := range codes {
+			out = append(out, *dto.RedeemCodeFromService(&codes[i]).Localized(c.GetHeader("Accept-Language")))
+		}
+		total := int64(len(out))
+		if result != nil {
+			total = result.Total
+		}
+		response.Paginated(c, out, total, page, pageSize)
+		return
 	}
 
-	codes, result, err := h.redeemService.GetUserHistoryPaginated(
-		c.Request.Context(), subject.UserID, params, c.Query("type"),
-	)
+	// Default limit is 25
+	limit := 25
+
+	codes, err := h.redeemService.GetUserHistory(c.Request.Context(), subject.UserID, limit)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -85,11 +122,7 @@ func (h *RedeemHandler) GetHistory(c *gin.Context) {
 
 	out := make([]dto.RedeemCode, 0, len(codes))
 	for i := range codes {
-		out = append(out, *dto.RedeemCodeFromService(&codes[i]))
+		out = append(out, *dto.RedeemCodeFromService(&codes[i]).Localized(c.GetHeader("Accept-Language")))
 	}
-	if result == nil {
-		response.Paginated(c, out, int64(len(out)), page, pageSize)
-		return
-	}
-	response.Paginated(c, out, result.Total, result.Page, result.PageSize)
+	response.Success(c, out)
 }
