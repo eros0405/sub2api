@@ -66,7 +66,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import type { WindowStats } from '@/types'
-import { formatCompactNumber, scaleAccountTokens } from '@/utils/format'
+import { formatCompactNumber } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
@@ -228,7 +228,7 @@ const formatRequests = computed(() => {
 
 const formatTokens = computed(() => {
   if (!props.windowStats) return ''
-  return formatCompactNumber(scaleAccountTokens(props.windowStats.tokens))
+  return formatCompactNumber(props.windowStats.tokens)
 })
 
 const formatAccountCost = computed(() => {
