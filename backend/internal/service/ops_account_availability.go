@@ -65,7 +65,7 @@ func (s *OpsService) GetAccountAvailabilityStats(ctx context.Context, platformFi
 			isOverloaded = false
 		}
 
-		isAvailable := acc.Status == StatusActive && acc.Schedulable && !isRateLimited && !isOverloaded && !isTempUnsched
+		isAvailable := accountIsAvailableForScheduling(&acc, now)
 
 		if acc.Platform != "" {
 			if _, ok := platform[acc.Platform]; !ok {
@@ -155,6 +155,29 @@ func (s *OpsService) GetAccountAvailabilityStats(ctx context.Context, platformFi
 	}
 
 	return platform, group, account, &collectedAt, nil
+}
+
+// accountIsAvailableForScheduling reports whether an account can take new
+// requests right now. It is the single source of truth shared by the
+// availability stats and the concurrency stats, so both views agree on what
+// "available capacity" means.
+func accountIsAvailableForScheduling(acc *Account, now time.Time) bool {
+	if acc == nil {
+		return false
+	}
+	if acc.TempUnschedulableUntil != nil && now.Before(*acc.TempUnschedulableUntil) {
+		return false
+	}
+	if acc.Status == StatusError {
+		return false
+	}
+	if acc.RateLimitResetAt != nil && now.Before(*acc.RateLimitResetAt) {
+		return false
+	}
+	if acc.OverloadUntil != nil && now.Before(*acc.OverloadUntil) {
+		return false
+	}
+	return acc.Status == StatusActive && acc.Schedulable
 }
 
 type OpsAccountAvailability struct {

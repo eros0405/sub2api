@@ -9,6 +9,12 @@ type PlatformConcurrencyInfo struct {
 	MaxCapacity    int64   `json:"max_capacity"`
 	LoadPercentage float64 `json:"load_percentage"`
 	WaitingInQueue int64   `json:"waiting_in_queue"`
+	// AvailableCapacity sums the concurrency quotas of accounts that are
+	// currently available for scheduling (active, schedulable, not rate-limited,
+	// not overloaded, not temporarily unschedulable). It can be lower than
+	// MaxCapacity and may transiently under-count capacity held by in-flight
+	// requests on accounts that just became unavailable.
+	AvailableCapacity int64 `json:"available_capacity"`
 }
 
 // GroupConcurrencyInfo aggregates concurrency usage by group.
@@ -22,6 +28,8 @@ type GroupConcurrencyInfo struct {
 	MaxCapacity    int64   `json:"max_capacity"`
 	LoadPercentage float64 `json:"load_percentage"`
 	WaitingInQueue int64   `json:"waiting_in_queue"`
+	// AvailableCapacity has the same semantics as in PlatformConcurrencyInfo.
+	AvailableCapacity int64 `json:"available_capacity"`
 }
 
 // AccountConcurrencyInfo represents real-time concurrency usage for a single account.

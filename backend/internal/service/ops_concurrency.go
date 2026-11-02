@@ -129,6 +129,7 @@ func (s *OpsService) GetConcurrencyStats(
 	}
 
 	collectedAt := time.Now()
+	now := collectedAt
 	loadMap := s.getAccountsLoadMapBestEffort(ctx, accounts)
 
 	platform := make(map[string]*PlatformConcurrencyInfo)
@@ -204,6 +205,9 @@ func (s *OpsService) GetConcurrencyStats(
 			p.MaxCapacity += int64(acc.Concurrency)
 			p.CurrentInUse += currentInUse
 			p.WaitingInQueue += waiting
+			if accountIsAvailableForScheduling(&acc, now) {
+				p.AvailableCapacity += int64(acc.Concurrency)
+			}
 		}
 
 		// Group aggregation (one account may contribute to multiple groups).
@@ -227,6 +231,9 @@ func (s *OpsService) GetConcurrencyStats(
 			g.MaxCapacity += int64(acc.Concurrency)
 			g.CurrentInUse += currentInUse
 			g.WaitingInQueue += waiting
+			if accountIsAvailableForScheduling(&acc, now) {
+				g.AvailableCapacity += int64(acc.Concurrency)
+			}
 		} else {
 			for _, grp := range acc.Groups {
 				if grp == nil || grp.ID <= 0 {
@@ -250,6 +257,9 @@ func (s *OpsService) GetConcurrencyStats(
 				g.MaxCapacity += int64(acc.Concurrency)
 				g.CurrentInUse += currentInUse
 				g.WaitingInQueue += waiting
+				if accountIsAvailableForScheduling(&acc, now) {
+					g.AvailableCapacity += int64(acc.Concurrency)
+				}
 			}
 		}
 	}

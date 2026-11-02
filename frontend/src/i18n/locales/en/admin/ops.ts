@@ -784,7 +784,9 @@ export default {
         queued: 'Queue {count}',
         rateLimited: 'Rate-limited {count}',
         errorAccounts: 'Errors {count}',
-        loadFailed: 'Failed to load concurrency data'
+        loadFailed: 'Failed to load concurrency data',
+        configuredCapacity: 'of {count} configured',
+        capacityDetail: 'Numerator is in-flight requests; denominator sums concurrency quotas of schedulable accounts only (active, not rate-limited/overloaded/temporarily unschedulable). Quotas of error, rate-limited or disabled accounts are excluded'
       },
       realtime: {
         title: 'Realtime',

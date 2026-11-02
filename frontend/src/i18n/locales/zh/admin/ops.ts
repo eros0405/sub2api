@@ -785,7 +785,9 @@ export default {
         queued: '队列 {count}',
         rateLimited: '限流 {count}',
         errorAccounts: '异常 {count}',
-        loadFailed: '加载并发数据失败'
+        loadFailed: '加载并发数据失败',
+        configuredCapacity: '配置 {count}',
+        capacityDetail: '分子为当前在途请求,分母为可调度账号(正常且未限流/未过载/未临时停用)的并发配额之和;异常、限流或禁用账号的配额不计入分母'
       },
       realtime: {
         title: '实时信息',

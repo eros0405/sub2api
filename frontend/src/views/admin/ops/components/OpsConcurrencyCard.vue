@@ -59,11 +59,29 @@ interface SummaryRow {
   error_accounts: number
   // 并发统计
   total_concurrency: number
+  available_capacity: number
   used_concurrency: number
   waiting_in_queue: number
   // 计算字段
   availability_percentage: number
   concurrency_percentage: number
+}
+
+// 有效负载百分比:分母用可调度账号的并发配额之和(available_capacity),
+// 账号全部不可用时若有在途请求则记 100%。
+function effectiveConcurrencyPercentage(usedConcurrency: number, availableCapacity: number): number {
+  if (availableCapacity > 0) {
+    return Math.min(Math.round((usedConcurrency / availableCapacity) * 100), 100)
+  }
+  return usedConcurrency > 0 ? 100 : 0
+}
+
+// 解析后端 available_capacity,字段缺失(旧版本后端)时回退到配置容量;0 是合法值(全部账号不可用)
+function resolveAvailableCapacity(raw: unknown, totalConcurrency: number): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return Math.max(raw, 0)
+  }
+  return totalConcurrency
 }
 
 // 账号详细行数据
@@ -113,6 +131,7 @@ const platformRows = computed((): SummaryRow[] => {
     const totalAccounts = safeNumber(avail.total_accounts)
     const availableAccounts = safeNumber(avail.available_count)
     const totalConcurrency = safeNumber(conc.max_capacity)
+    const availableCapacity = resolveAvailableCapacity(conc.available_capacity, totalConcurrency)
     const usedConcurrency = safeNumber(conc.current_in_use)
 
     return {
@@ -124,10 +143,11 @@ const platformRows = computed((): SummaryRow[] => {
 
       error_accounts: safeNumber(avail.error_count),
       total_concurrency: totalConcurrency,
+      available_capacity: availableCapacity,
       used_concurrency: usedConcurrency,
       waiting_in_queue: safeNumber(conc.waiting_in_queue),
       availability_percentage: totalAccounts > 0 ? Math.round((availableAccounts / totalAccounts) * 100) : 0,
-      concurrency_percentage: totalConcurrency > 0 ? Math.round((usedConcurrency / totalConcurrency) * 100) : 0
+      concurrency_percentage: effectiveConcurrencyPercentage(usedConcurrency, availableCapacity)
     }
   }).sort((a, b) => b.concurrency_percentage - a.concurrency_percentage)
 })
@@ -152,6 +172,7 @@ const groupRows = computed((): SummaryRow[] => {
       const totalAccounts = safeNumber(avail.total_accounts)
       const availableAccounts = safeNumber(avail.available_count)
       const totalConcurrency = safeNumber(conc.max_capacity)
+      const availableCapacity = resolveAvailableCapacity(conc.available_capacity, totalConcurrency)
       const usedConcurrency = safeNumber(conc.current_in_use)
 
       return {
@@ -161,13 +182,14 @@ const groupRows = computed((): SummaryRow[] => {
         total_accounts: totalAccounts,
         available_accounts: availableAccounts,
         rate_limited_accounts: safeNumber(avail.rate_limit_count),
-  
+
         error_accounts: safeNumber(avail.error_count),
         total_concurrency: totalConcurrency,
+        available_capacity: availableCapacity,
         used_concurrency: usedConcurrency,
         waiting_in_queue: safeNumber(conc.waiting_in_queue),
         availability_percentage: totalAccounts > 0 ? Math.round((availableAccounts / totalAccounts) * 100) : 0,
-        concurrency_percentage: totalConcurrency > 0 ? Math.round((usedConcurrency / totalConcurrency) * 100) : 0
+        concurrency_percentage: effectiveConcurrencyPercentage(usedConcurrency, availableCapacity)
       }
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)
@@ -455,7 +477,19 @@ watch(
               </span>
             </div>
             <div class="flex shrink-0 items-center gap-2 text-[10px]">
-              <span class="font-mono font-bold text-gray-900 dark:text-white"> {{ row.used_concurrency }}/{{ row.total_concurrency }} </span>
+              <span
+                class="font-mono font-bold text-gray-900 dark:text-white"
+                :title="t('admin.ops.concurrency.capacityDetail')"
+              >
+                {{ row.used_concurrency }}/{{ row.available_capacity }}
+              </span>
+              <span
+                v-if="row.total_concurrency > row.available_capacity"
+                class="text-gray-400 dark:text-gray-500"
+                :title="t('admin.ops.concurrency.configuredCapacity', { count: row.total_concurrency })"
+              >
+                {{ t('admin.ops.concurrency.configuredCapacity', { count: row.total_concurrency }) }}
+              </span>
               <span :class="['font-bold', getLoadTextClass(row.concurrency_percentage)]"> {{ row.concurrency_percentage }}% </span>
             </div>
           </div>

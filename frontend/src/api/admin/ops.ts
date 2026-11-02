@@ -299,6 +299,8 @@ export interface PlatformConcurrencyInfo {
   max_capacity: number
   load_percentage: number
   waiting_in_queue: number
+  /** Sum of concurrency quotas over accounts currently available for scheduling; <= max_capacity */
+  available_capacity?: number
 }
 
 export interface GroupConcurrencyInfo {
@@ -309,6 +311,8 @@ export interface GroupConcurrencyInfo {
   max_capacity: number
   load_percentage: number
   waiting_in_queue: number
+  /** Sum of concurrency quotas over accounts currently available for scheduling; <= max_capacity */
+  available_capacity?: number
 }
 
 export interface AccountConcurrencyInfo {
