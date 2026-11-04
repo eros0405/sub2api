@@ -355,6 +355,8 @@ type AccountUsageSummary struct {
 	AvgDailyRequests  float64 `json:"avg_daily_requests"`
 	AvgDailyTokens    float64 `json:"avg_daily_tokens"`
 	AvgDurationMs     float64 `json:"avg_duration_ms"`
+	AvgTTFTMs         float64 `json:"avg_ttft_ms"` // 平均首 token 耗时，无样本为 0
+	AvgOTPS           float64 `json:"avg_otps"`    // 平均输出 token/秒，无样本为 0
 	Today             *struct {
 		Date     string  `json:"date"`
 		Cost     float64 `json:"cost"`

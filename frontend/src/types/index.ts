@@ -2315,6 +2315,8 @@ export interface AccountUsageSummary {
   avg_daily_requests: number
   avg_daily_tokens: number
   avg_duration_ms: number
+  avg_ttft_ms: number
+  avg_otps: number
   today: {
     date: string
     cost: number

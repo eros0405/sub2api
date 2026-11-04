@@ -1000,9 +1000,22 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		actualDaysUsed = 1
 	}
 
-	avgQuery := "SELECT COALESCE(AVG(duration_ms), 0) as avg_duration_ms FROM usage_logs WHERE account_id = $1 AND created_at >= $2 AND created_at < $3"
-	var avgDuration float64
-	if err := scanSingleRow(ctx, r.sql, avgQuery, []any{accountID, startTime, endTime}, &avgDuration); err != nil {
+	// OTPS 口径与运维面板 queryOutputTPS 一致：仅统计有输出且有耗时的非图片请求。
+	avgQuery := fmt.Sprintf(`
+		SELECT
+			COALESCE(AVG(duration_ms), 0) AS avg_duration_ms,
+			COALESCE(AVG(first_token_ms), 0) AS avg_ttft_ms,
+			COALESCE(AVG(output_tokens * 1000.0 / NULLIF(duration_ms, 0)) FILTER (
+				WHERE output_tokens > 0 AND duration_ms > 0
+				AND image_count = 0 AND image_output_tokens = 0
+				AND COALESCE(billing_mode, '') <> 'image'
+				AND request_type IN (%d, %d, %d, %d)
+			), 0) AS avg_otps
+		FROM usage_logs
+		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3`,
+		service.RequestTypeSync, service.RequestTypeStream, service.RequestTypeWSV2, service.RequestTypeCyberBlocked)
+	var avgDuration, avgTTFT, avgOTPS float64
+	if err := scanSingleRow(ctx, r.sql, avgQuery, []any{accountID, startTime, endTime}, &avgDuration, &avgTTFT, &avgOTPS); err != nil {
 		return nil, err
 	}
 
@@ -1019,6 +1032,8 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		AvgDailyRequests:  float64(totalRequests) / float64(actualDaysUsed),
 		AvgDailyTokens:    float64(totalTokens) / float64(actualDaysUsed),
 		AvgDurationMs:     avgDuration,
+		AvgTTFTMs:         avgTTFT,
+		AvgOTPS:           avgOTPS,
 	}
 
 	todayStr := timezone.Now().Format("2006-01-02")

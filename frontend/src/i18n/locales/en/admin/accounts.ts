@@ -1709,6 +1709,8 @@ export default {
         dailyAvgTokens: 'Daily Average',
         performance: 'Performance',
         avgResponseTime: 'Avg Response',
+        avgTtft: 'Avg TTFT',
+        avgOtps: 'Avg OTPS',
         daysActive: 'Days Active',
         recentActivity: 'Recent Activity',
         todayRequests: 'Today Requests',

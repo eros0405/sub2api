@@ -1797,6 +1797,8 @@ export default {
         dailyAvgTokens: '日均 Token',
         performance: '性能',
         avgResponseTime: '平均响应',
+        avgTtft: '平均首 token (TTFT)',
+        avgOtps: '平均输出速度 (OTPS)',
         daysActive: '活跃天数',
         recentActivity: '最近统计',
         todayRequests: '今日请求',
